@@ -1,0 +1,20 @@
+item.debugStick.name=Debug Stick
+item.handViewer.name=Hand Viewer
+tile.debugTasket.name=Tasket Debug Table
+tile.viewer.name=Viewer
+
+itemGroup.tasket.name=Tasket
+
+config.comment.greeting=Welcome to Tasket!
+config.comment.isMemoryMode=Whether to enable debug mode
+config.comment.debugMode=Whether to enable sqlite memory optimization mode
+
+config.comment.ui.blur.downscaleLevels=Downscale levels for blur effect (higher levels reduce performance cost by 4x per level with some quality loss)
+config.comment.ui.blur.radius=Radius for blur effect (Higher values mean more diffusion with less performance cost)
+config.comment.ui.blur.blurPasses=Number of passes for blur effect(Increased performance cost by 2x per pass with 2x smoothness)
+
+config.comment.ui.animation.blur.enabled=Whether to enable fade in/out animation effect
+config.comment.ui.animation.blur.fadeDuration=Fade in/out animation duration (ms)
+
+key.categories.tasket=Tasket
+key.openTaskGui=Open Task GUI

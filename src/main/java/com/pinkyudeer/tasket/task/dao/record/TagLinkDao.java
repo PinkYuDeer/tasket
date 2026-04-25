@@ -1,0 +1,49 @@
+package com.pinkyudeer.tasket.task.dao.record;
+
+import java.sql.SQLException;
+import java.util.List;
+import java.util.UUID;
+
+import com.pinkyudeer.tasket.db.SQLHelper;
+import com.pinkyudeer.tasket.db.builder.DeleteBuilder;
+import com.pinkyudeer.tasket.db.builder.SelectBuilder;
+import com.pinkyudeer.tasket.db.builder.UpdateBuilder;
+import com.pinkyudeer.tasket.task.entity.record.TagLink;
+
+public class TagLinkDao {
+
+    public static Integer insert(TagLink tagLink) {
+        return SQLHelper.insert(tagLink);
+    }
+
+    public static UpdateBuilder<TagLink> update() {
+        return SQLHelper.update(TagLink.class);
+    }
+
+    public static Integer updateByIdByCompare(TagLink tagLink, TagLink oldTagLink) {
+        return SQLHelper.updateByCompare(tagLink, oldTagLink)
+            .byId()
+            .execute();
+    }
+
+    public static DeleteBuilder<TagLink> delete() {
+        return SQLHelper.delete(TagLink.class);
+    }
+
+    public static Integer deleteById(TagLink tagLink) {
+        return SQLHelper.deleteById(tagLink)
+            .execute();
+    }
+
+    public static SelectBuilder<TagLink> select() {
+        return SQLHelper.select(TagLink.class);
+    }
+
+    public static TagLink selectById(UUID id) {
+        return SQLHelper.selectByPremiereKey(TagLink.class, id);
+    }
+
+    public static List<TagLink> selectAll() throws SQLException {
+        return SQLHelper.selectAllFrom(TagLink.class);
+    }
+}
