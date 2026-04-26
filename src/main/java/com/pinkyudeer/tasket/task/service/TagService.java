@@ -14,6 +14,7 @@ import com.pinkyudeer.tasket.task.dao.TagDao;
 import com.pinkyudeer.tasket.task.dao.record.TagLinkDao;
 import com.pinkyudeer.tasket.task.entity.Tag;
 import com.pinkyudeer.tasket.task.entity.Task;
+import com.pinkyudeer.tasket.task.entity.Team;
 import com.pinkyudeer.tasket.task.entity.record.Notification.RelatedEntityType;
 import com.pinkyudeer.tasket.task.entity.record.Notification.SourceType;
 import com.pinkyudeer.tasket.task.entity.record.TagLink;
@@ -41,6 +42,26 @@ public final class TagService {
             tag.setUpdateTime(LocalDateTime.now());
             Integer result = TagDao.insert(tag);
             return result != null && result > 0 ? tag : null;
+        });
+    }
+
+    public static Tag updateTag(TaskService.PermissionContext context, UUID tagId, String name, String description,
+        String colorCode) {
+        if (context == null) throw new IllegalArgumentException("权限上下文不能为空");
+        if (tagId == null) throw new IllegalArgumentException("标签 ID 不能为空");
+        if (isBlank(name)) throw new IllegalArgumentException("标签名称不能为空");
+        Tag tag = TagDao.selectById(tagId);
+        if (tag == null) throw new IllegalArgumentException("标签不存在");
+        assertCanEditTag(context, tag);
+
+        return SQLiteManager.transaction(() -> {
+            Tag oldTag = UtilHelper.shallowClone(tag);
+            tag.setName(name.trim());
+            if (description != null) tag.setDescription(description);
+            if (!isBlank(colorCode)) tag.setColorCode(normalizeColor(colorCode));
+            tag.setUpdateTime(LocalDateTime.now());
+            TagDao.updateByIdByCompare(tag, oldTag);
+            return tag;
         });
     }
 
@@ -173,6 +194,29 @@ public final class TagService {
         return visible;
     }
 
+    public static List<Tag> getVisibleTagsForPlayer(UUID playerId, boolean isOp) {
+        List<Tag> visible = new ArrayList<>();
+        List<UUID> teamIds = new ArrayList<>();
+        for (Team team : TeamService.getVisibleTeams(playerId)) {
+            if (team.getId() != null) teamIds.add(team.getId());
+        }
+        for (Tag tag : getAllTags()) {
+            if (isOp || tag.getScope() == Tag.TagScope.SYSTEM || tag.getScope() == Tag.TagScope.PUBLIC) {
+                visible.add(tag);
+                continue;
+            }
+            if (tag.getScope() == Tag.TagScope.PRIVATE && playerId != null && playerId.equals(tag.getOwnerId())) {
+                visible.add(tag);
+                continue;
+            }
+            if (tag.getScope() == Tag.TagScope.TEAM && tag.getOwnerTeamId() != null
+                && teamIds.contains(tag.getOwnerTeamId())) {
+                visible.add(tag);
+            }
+        }
+        return visible;
+    }
+
     public static Tag getTag(UUID tagId) {
         return tagId == null ? null : TagDao.selectById(tagId);
     }
@@ -197,6 +241,27 @@ public final class TagService {
             return;
         }
         throw new SecurityException("无权创建团队标签");
+    }
+
+    private static void assertCanEditTag(TaskService.PermissionContext context, Tag tag) {
+        if (context.isOp()) return;
+        Tag.TagScope scope = tag.getScope();
+        if (scope == Tag.TagScope.SYSTEM) throw new SecurityException("只有 OP 可修改系统标签");
+        if (scope == Tag.TagScope.PRIVATE) {
+            if (context.getActorId() == null || !context.getActorId()
+                .equals(tag.getOwnerId())) {
+                throw new SecurityException("私有标签只能由拥有者修改");
+            }
+            return;
+        }
+        if (scope == Tag.TagScope.TEAM) {
+            UUID tagTeam = tag.getOwnerTeamId();
+            if (tagTeam == null || !tagTeam.equals(context.getTeamId()) || context.getTeamRole() == null) {
+                throw new SecurityException("无权修改团队标签");
+            }
+            return;
+        }
+        // PUBLIC: 任何已登录玩家可协作修改
     }
 
     private static Task requireWritableTask(TaskService.PermissionContext context, String taskId) {

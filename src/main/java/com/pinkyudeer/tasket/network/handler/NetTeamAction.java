@@ -9,7 +9,10 @@ import com.pinkyudeer.tasket.Tasket;
 import com.pinkyudeer.tasket.network.PacketIds;
 import com.pinkyudeer.tasket.network.PacketSender;
 import com.pinkyudeer.tasket.network.PacketTypeRegistry;
+import com.pinkyudeer.tasket.task.entity.Team;
 import com.pinkyudeer.tasket.task.service.TeamService;
+import com.pinkyudeer.tasket.task.team.TeamProvider;
+import com.pinkyudeer.tasket.task.team.TeamProviders;
 
 public final class NetTeamAction {
 
@@ -30,7 +33,9 @@ public final class NetTeamAction {
             UUID actorId = sender.getUniqueID();
             boolean op = isOp(sender);
             if ("create".equals(action)) {
-                TeamService.createLocalTeam(payload.getString("name"), actorId, payload.getString("description"));
+                Team team = TeamService
+                    .createLocalTeam(payload.getString("name"), actorId, payload.getString("description"));
+                linkCreatedTeam(team, payload.getString("source"), actorId, op);
                 NetTeamSync.sendSync(sender, true);
             } else if ("invite".equals(action)) {
                 TeamService.invitePlayer(readUuid(payload, "teamId"), readUuid(payload, "playerId"), actorId);
@@ -86,6 +91,21 @@ public final class NetTeamAction {
         if (!payload.hasKey(key) || payload.getString(key)
             .isEmpty()) return null;
         return UUID.fromString(payload.getString(key));
+    }
+
+    private static void linkCreatedTeam(Team team, String source, UUID actorId, boolean op) {
+        if (team == null || source == null || source.isEmpty() || "LOCAL".equals(source)) return;
+        if ("BETTER_QUESTING".equals(source)) {
+            TeamProvider provider = TeamProviders.betterQuesting();
+            int partyId = provider.getPartyForPlayer(actorId);
+            if (partyId == TeamProvider.NO_PARTY) throw new IllegalArgumentException("未找到 BetterQuesting 队伍");
+            TeamService.linkBetterQuestingParty(team.getId(), partyId, actorId, op);
+        } else if ("GTNH_LIB".equals(source)) {
+            TeamProvider provider = TeamProviders.gtnhLib();
+            String teamKey = provider.getTeamKeyForPlayer(actorId);
+            if (teamKey == null || teamKey.isEmpty()) throw new IllegalArgumentException("未找到 GTNHLib 队伍");
+            TeamService.linkGtnhLibTeam(team.getId(), teamKey, actorId, op);
+        }
     }
 
     private static boolean isOp(EntityPlayerMP player) {

@@ -31,6 +31,7 @@ public final class NetMainSync {
     public static void sendFullSync(EntityPlayerMP player) {
         sendReset(player, true, false);
         NetTeamSync.sendSync(player, false);
+        NetTagSync.sendSync(player, false);
         NetTaskSync.sendSync(player, false);
         NetInviteSync.sendSync(player);
     }

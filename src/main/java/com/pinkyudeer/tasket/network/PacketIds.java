@@ -11,6 +11,8 @@ public final class PacketIds {
     public static final ResourceLocation TASK_SYNC = id("task_sync");
     public static final ResourceLocation TEAM_ACTION = id("team_action");
     public static final ResourceLocation TEAM_SYNC = id("team_sync");
+    public static final ResourceLocation TAG_ACTION = id("tag_action");
+    public static final ResourceLocation TAG_SYNC = id("tag_sync");
     public static final ResourceLocation INVITE_SYNC = id("invite_sync");
     public static final ResourceLocation ERROR = id("error");
 

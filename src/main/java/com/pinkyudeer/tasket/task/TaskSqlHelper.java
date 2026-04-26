@@ -54,6 +54,11 @@ public class TaskSqlHelper {
         applyMigration(5, "teams.last_sync_time", () -> addColumnIfNotExists("teams", "last_sync_time", "TIMESTAMP"));
         applyMigration(6, "teams.external_team_key", () -> addColumnIfNotExists("teams", "external_team_key", "TEXT"));
         applyMigration(7, "tags.owner_team_id", () -> addColumnIfNotExists("tags", "owner_team_id", "TEXT"));
+        applyMigration(8, "tasks.assignee_id", () -> addColumnIfNotExists("tasks", "assignee_id", "TEXT"));
+        applyMigration(
+            9,
+            "tasks.status.UnStarted_to_Claimed",
+            () -> SQLiteManager.executeUpdate("UPDATE tasks SET status = 'Claimed' WHERE status = 'UnStarted'"));
     }
 
     private static void addColumnIfNotExists(String table, String column, String type) {

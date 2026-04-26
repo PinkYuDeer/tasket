@@ -8,6 +8,8 @@ import com.pinkyudeer.tasket.client.TaskClientStore;
 import com.pinkyudeer.tasket.network.PacketIds;
 import com.pinkyudeer.tasket.network.PacketSender;
 import com.pinkyudeer.tasket.network.PacketTypeRegistry;
+import com.pinkyudeer.tasket.task.dao.PlayerDao;
+import com.pinkyudeer.tasket.task.entity.Player;
 import com.pinkyudeer.tasket.task.entity.Tag;
 import com.pinkyudeer.tasket.task.entity.Task;
 import com.pinkyudeer.tasket.task.service.TagService;
@@ -87,6 +89,26 @@ public final class NetTaskSync {
             task.getCreator() == null ? ""
                 : task.getCreator()
                     .toString());
+        tag.setString(
+            "assigneeId",
+            task.getAssigneeId() == null ? ""
+                : task.getAssigneeId()
+                    .toString());
+        tag.setInteger("assigneeCount", task.getAssigneeCount() == null ? 0 : task.getAssigneeCount());
+        NBTTagList assignees = new NBTTagList();
+        for (java.util.UUID assigneeId : TaskService.getAssigneesForTask(task.getId())) {
+            NBTTagCompound assignee = new NBTTagCompound();
+            assignee.setString("playerId", assigneeId == null ? "" : assigneeId.toString());
+            Player player = assigneeId == null ? null : PlayerDao.selectById(assigneeId);
+            assignee.setString(
+                "playerName",
+                player == null || player.getPlayerName() == null ? "" : player.getPlayerName());
+            assignee.setString(
+                "displayName",
+                player == null || player.getDisplayName() == null ? "" : player.getDisplayName());
+            assignees.appendTag(assignee);
+        }
+        tag.setTag("assignees", assignees);
         tag.setString(
             "createTime",
             task.getCreateTime() == null ? ""

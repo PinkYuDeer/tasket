@@ -2,6 +2,7 @@ package com.pinkyudeer.tasket.task.service;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,10 +12,12 @@ import com.pinkyudeer.tasket.db.SQLHelper;
 import com.pinkyudeer.tasket.db.SQLiteManager;
 import com.pinkyudeer.tasket.helper.UtilHelper;
 import com.pinkyudeer.tasket.task.dao.TaskDao;
+import com.pinkyudeer.tasket.task.dao.record.TaskInteractionDao;
 import com.pinkyudeer.tasket.task.entity.Task;
 import com.pinkyudeer.tasket.task.entity.Task.TaskStatus;
 import com.pinkyudeer.tasket.task.entity.Team;
 import com.pinkyudeer.tasket.task.entity.record.StatusChangeRecord;
+import com.pinkyudeer.tasket.task.entity.record.TaskInteraction;
 import com.pinkyudeer.tasket.task.entity.record.TeamMember;
 
 public class TaskService {
@@ -43,6 +46,11 @@ public class TaskService {
 
     public static Task createTask(PermissionContext context, String title, String description,
         Task.Importance importance, Task.Urgency urgency) {
+        return createTask(context, title, description, importance, urgency, null);
+    }
+
+    public static Task createTask(PermissionContext context, String title, String description,
+        Task.Importance importance, Task.Urgency urgency, Task.PrivacyLevel visibility) {
         if (context == null) throw new IllegalArgumentException("权限上下文不能为空");
         if (context.getTeamId() != null && !context.canCreateTeamTask()) {
             Tasket.LOG.warn("Player {} cannot create task in team {}", context.getActorId(), context.getTeamId());
@@ -50,7 +58,7 @@ public class TaskService {
         }
         Task task = new Task(title, description, context.getActorId(), importance, urgency);
         task.setTeamId(context.getTeamId());
-        if (context.getTeamId() != null) task.setVisibility(Task.PrivacyLevel.TEAM);
+        task.setVisibility(resolveVisibility(context, visibility));
         Integer result = TaskDao.insert(task);
         if (result == null || result <= 0) {
             Tasket.LOG.error("Failed to create task: {}", title);
@@ -97,6 +105,16 @@ public class TaskService {
 
                 Task oldTask = UtilHelper.deepClone(task, Task.class);
                 task.setStatus(newStatus);
+                if (newStatus == TaskStatus.UnClaimed) {
+                    task.setAssigneeId(null);
+                    task.setAssigneeCount(0);
+                    UUID taskUuid = UUID.fromString(taskId);
+                    for (TaskInteraction interaction : activeAssignmentRecords(taskUuid)) {
+                        TaskInteraction oldInteraction = UtilHelper.deepClone(interaction, TaskInteraction.class);
+                        interaction.setStatus(TaskInteraction.InteractionStatus.REVOKED);
+                        TaskInteractionDao.updateByIdByCompare(interaction, oldInteraction);
+                    }
+                }
                 task.setUpdateTime(LocalDateTime.now());
                 task.setLastOperator(operatorId);
                 task.setVersion((task.getVersion() == null ? 0 : task.getVersion()) + 1);
@@ -125,6 +143,116 @@ public class TaskService {
             Tasket.LOG.error("Failed to change task status", e);
             return false;
         }
+    }
+
+    public static boolean assignTask(PermissionContext context, String taskId, UUID assigneeId) {
+        return setAssigneesForTask(
+            context,
+            taskId,
+            assigneeId == null ? Collections.emptyList() : java.util.Collections.singletonList(assigneeId));
+    }
+
+    public static boolean setAssigneesForTask(PermissionContext context, String taskId, List<UUID> assigneeIds) {
+        if (context == null) throw new IllegalArgumentException("权限上下文不能为空");
+        try {
+            return SQLiteManager.transaction(() -> {
+                Task task = getTask(taskId);
+                if (task == null) {
+                    Tasket.LOG.error("Task not found: {}", taskId);
+                    return false;
+                }
+                if (!canWriteTask(context, task)) throw new SecurityException("无权指派此任务");
+
+                LinkedHashSet<UUID> targetIds = new LinkedHashSet<>();
+                if (assigneeIds != null) {
+                    for (UUID assigneeId : assigneeIds) {
+                        if (assigneeId == null) continue;
+                        assertAssigneeAllowed(context, task, assigneeId);
+                        targetIds.add(assigneeId);
+                    }
+                }
+
+                Task oldTask = UtilHelper.deepClone(task, Task.class);
+                TaskStatus oldStatus = task.getStatus();
+                if (targetIds.isEmpty()) {
+                    task.setAssigneeId(null);
+                    task.setAssigneeCount(0);
+                    if (task.getStatus() == TaskStatus.Claimed) task.setStatus(TaskStatus.UnClaimed);
+                } else {
+                    task.setAssigneeId(
+                        targetIds.iterator()
+                            .next());
+                    task.setAssigneeCount(targetIds.size());
+                    if (task.getStatus() == TaskStatus.UnClaimed) task.setStatus(TaskStatus.Claimed);
+                }
+                task.setUpdateTime(LocalDateTime.now());
+                task.setLastOperator(context.getActorId());
+                task.setVersion((task.getVersion() == null ? 0 : task.getVersion()) + 1);
+
+                UUID taskUuid = UUID.fromString(taskId);
+                List<TaskInteraction> oldAssignments = activeAssignmentRecords(taskUuid);
+                for (TaskInteraction interaction : oldAssignments) {
+                    if (!targetIds.remove(interaction.getPlayerId())) {
+                        TaskInteraction oldInteraction = UtilHelper.deepClone(interaction, TaskInteraction.class);
+                        interaction.setStatus(TaskInteraction.InteractionStatus.REVOKED);
+                        TaskInteractionDao.updateByIdByCompare(interaction, oldInteraction);
+                    }
+                }
+                for (UUID assigneeId : targetIds) {
+                    TaskInteraction interaction = new TaskInteraction(
+                        TaskInteraction.InteractionType.ASSIGN,
+                        taskUuid,
+                        assigneeId,
+                        context.getActorId());
+                    TaskInteractionDao.insert(interaction);
+                }
+
+                Integer result = TaskDao.updateByIdByCompare(task, oldTask);
+                if (result == null || result <= 0) return false;
+
+                if (oldStatus != task.getStatus()) {
+                    StatusChangeRecord record = new StatusChangeRecord(
+                        context.getActorId(),
+                        UUID.fromString(taskId),
+                        oldStatus,
+                        task.getStatus());
+                    SQLHelper.insert(record);
+                }
+                return true;
+            });
+        } catch (SecurityException e) {
+            throw e;
+        } catch (Exception e) {
+            Tasket.LOG.error("Failed to assign task: {}", taskId, e);
+            return false;
+        }
+    }
+
+    public static List<UUID> getAssigneesForTask(String taskId) {
+        if (taskId == null || taskId.isEmpty()) return Collections.emptyList();
+        LinkedHashSet<UUID> result = new LinkedHashSet<>();
+        try {
+            UUID taskUuid = UUID.fromString(taskId);
+            for (TaskInteraction interaction : activeAssignmentRecords(taskUuid)) {
+                if (interaction.getPlayerId() != null) result.add(interaction.getPlayerId());
+            }
+            Task task = getTask(taskId);
+            if (task != null && task.getAssigneeId() != null) result.add(task.getAssigneeId());
+        } catch (Exception e) {
+            Tasket.LOG.warn("Failed to load task assignees: {}", taskId, e);
+        }
+        return new java.util.ArrayList<>(result);
+    }
+
+    private static List<TaskInteraction> activeAssignmentRecords(UUID taskId) {
+        if (taskId == null) return Collections.emptyList();
+        return EntityHandler.handleList(
+            TaskInteractionDao.select()
+                .where("task_id", SQLHelper.Operator.EQ, taskId)
+                .where("type", SQLHelper.Operator.EQ, TaskInteraction.InteractionType.ASSIGN)
+                .where("status", SQLHelper.Operator.EQ, TaskInteraction.InteractionStatus.ACTIVE)
+                .execute(),
+            TaskInteraction.class);
     }
 
     public static boolean completeTask(String taskId, UUID operatorId) {
@@ -189,6 +317,24 @@ public class TaskService {
             return context.canAssignTeamTask();
         }
         return false;
+    }
+
+    private static Task.PrivacyLevel resolveVisibility(PermissionContext context, Task.PrivacyLevel requested) {
+        if (requested == null) return context.getTeamId() == null ? Task.PrivacyLevel.PRIVATE : Task.PrivacyLevel.TEAM;
+        if (requested == Task.PrivacyLevel.TEAM && context.getTeamId() == null) return Task.PrivacyLevel.PRIVATE;
+        return requested;
+    }
+
+    private static void assertAssigneeAllowed(PermissionContext context, Task task, UUID assigneeId) {
+        if (assigneeId == null) return;
+        if (task.getTeamId() == null) {
+            if (!assigneeId.equals(context.getActorId())) throw new SecurityException("个人任务只能指派给自己");
+            return;
+        }
+        TeamMember member = TeamService.getMember(task.getTeamId(), assigneeId);
+        if (member == null || member.getStatus() != TeamMember.MemberStatus.ACTIVE) {
+            throw new SecurityException("负责人不是团队成员");
+        }
     }
 
     public static boolean deleteTask(String taskId) {

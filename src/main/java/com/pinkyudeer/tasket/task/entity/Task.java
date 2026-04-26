@@ -54,6 +54,10 @@ public class Task {
     @Column(name = "assignee_count", defaultValue = "0")
     private Integer assigneeCount; // 负责人个数
     @Nullable
+    @Column(name = "assignee_id")
+    @Reference(entity = Player.class)
+    private UUID assigneeId; // 当前负责人
+    @Nullable
     @Column(name = "team_id")
     @Reference(entity = Team.class)
     private UUID teamId; // 所属团队ID
@@ -224,8 +228,8 @@ public class Task {
     // 状态
     public enum TaskStatus {
         UnClaimed, // 待认领
+        Claimed, // 已认领
         Blocked, // 被阻塞
-        UnStarted, // 待开始
         InProgress, // 进行中
         InTrialRun, // 试运行
         Completed, // 已完成

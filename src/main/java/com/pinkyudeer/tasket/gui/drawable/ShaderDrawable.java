@@ -1,5 +1,7 @@
 package com.pinkyudeer.tasket.gui.drawable;
 
+import org.lwjgl.opengl.GL11;
+
 import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.screen.viewport.GuiContext;
 import com.cleanroommc.modularui.theme.WidgetTheme;
@@ -11,24 +13,69 @@ import cpw.mods.fml.relauncher.SideOnly;
 @SideOnly(Side.CLIENT)
 public class ShaderDrawable implements IDrawable {
 
+    private final GLShaderDrawHelper.CustomRectConfig baseConfig;
     private GLShaderDrawHelper.CustomRectConfig config;
     private boolean needsSetup = true;
     private int lastW, lastH;
 
     private ShaderDrawable(GLShaderDrawHelper.CustomRectConfig config) {
-        this.config = config;
+        this.baseConfig = copy(config);
+        this.config = copy(config);
     }
 
     @Override
     public void draw(GuiContext context, int x, int y, int width, int height, WidgetTheme widgetTheme) {
         if (config == null) return;
         if (needsSetup || width != lastW || height != lastH) {
-            config = config.setup(width, height);
+            config = copy(baseConfig).setup(width, height);
             lastW = width;
             lastH = height;
             needsSetup = false;
         }
+        boolean translate = x != 0 || y != 0;
+        if (translate) {
+            GL11.glPushMatrix();
+            GL11.glTranslatef(x, y, 0);
+        }
         GLShaderDrawHelper.drawComplexRect(config);
+        if (translate) {
+            GL11.glPopMatrix();
+        }
+    }
+
+    private static GLShaderDrawHelper.CustomRectConfig copy(GLShaderDrawHelper.CustomRectConfig source) {
+        GLShaderDrawHelper.CustomRectConfig copy = new GLShaderDrawHelper.CustomRectConfig(
+            copy(source.renderOffset),
+            copy(source.renderSize),
+            source.continuityIndex,
+            source.colorBg,
+            copy(source.rectSize),
+            copy(source.rectCenter),
+            source.colorRect,
+            source.rectEdgeSoftness,
+            copy(source.cornerRadiuses),
+            source.borderThickness,
+            source.borderSoftness,
+            source.borderPos,
+            source.colorBorder,
+            source.shadowSoftness,
+            copy(source.shadowOffset),
+            source.colorShadow,
+            source.shadow2Softness,
+            copy(source.shadow2Offset),
+            source.colorShadow2,
+            source.innerShadowSoftness,
+            copy(source.innerShadowOffset),
+            source.colorInnerShadow,
+            source.innerShadow2Softness,
+            copy(source.innerShadow2Offset),
+            source.colorInnerShadow2);
+        copy.containedBounds = source.containedBounds;
+        return copy;
+    }
+
+    private static float[] copy(float[] source) {
+        return source == null ? new float[0] : source.clone();
     }
 
     public static Builder builder() {
@@ -77,6 +124,7 @@ public class ShaderDrawable implements IDrawable {
         private float innerShadow2Softness = 0f;
         private float[] innerShadow2Offset = { 0f, 0f };
         private int colorInnerShadow2 = 0x00000000;
+        private boolean containedBounds = false;
 
         public Builder rectColor(int color) {
             this.colorRect = color;
@@ -120,6 +168,11 @@ public class ShaderDrawable implements IDrawable {
             return this;
         }
 
+        public Builder containedBounds() {
+            this.containedBounds = true;
+            return this;
+        }
+
         public ShaderDrawable build() {
             GLShaderDrawHelper.CustomRectConfig config = new GLShaderDrawHelper.CustomRectConfig(
                 renderOffset,
@@ -147,6 +200,7 @@ public class ShaderDrawable implements IDrawable {
                 innerShadow2Softness,
                 innerShadow2Offset,
                 colorInnerShadow2);
+            config.containedBounds = containedBounds;
             return new ShaderDrawable(config);
         }
     }

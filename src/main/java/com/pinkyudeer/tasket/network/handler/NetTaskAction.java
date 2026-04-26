@@ -43,11 +43,14 @@ public final class NetTaskAction {
                     payload.getString("title"),
                     payload.getString("description"),
                     readImportance(payload),
-                    readUrgency(payload));
+                    readUrgency(payload),
+                    readVisibility(payload));
                 if (task == null) {
                     NetError.send(sender, NetError.SERVER_ERROR, "task create failed");
                 } else {
-                    NetTaskSync.sendSync(sender, true);
+                    applyCreatedTaskTags(sender, task, payload);
+                    applyCreatedTaskAssignee(sender, task, payload);
+                    sendTaskAndTagSync(sender);
                 }
             } else if ("create_subtask".equals(action)) {
                 Task parent = TaskService.getTask(payload.getString("parentTaskId"));
@@ -64,7 +67,15 @@ public final class NetTaskAction {
                     readImportance(payload),
                     readUrgency(payload));
                 if (task == null) NetError.send(sender, NetError.SERVER_ERROR, "subtask create failed");
-                else NetTaskSync.sendSync(sender, true);
+                else {
+                    Task oldTask = UtilHelper.deepClone(task, Task.class);
+                    task.setTeamId(parent.getTeamId());
+                    task.setVisibility(payload.hasKey("visibility") ? readVisibility(payload) : parent.getVisibility());
+                    TaskService.updateTask(task, oldTask);
+                    applyCreatedTaskTags(sender, task, payload);
+                    applyCreatedTaskAssignee(sender, task, payload);
+                    sendTaskAndTagSync(sender);
+                }
             } else if ("update".equals(action)) {
                 Task task = TaskService.getTask(payload.getString("taskId"));
                 if (task == null) {
@@ -84,6 +95,7 @@ public final class NetTaskAction {
                 task.setImportance(readImportance(payload));
                 task.setUrgency(readUrgency(payload));
                 task.setPriority(Task.calculatePriority(task.getImportance(), task.getUrgency()));
+                if (payload.hasKey("visibility")) task.setVisibility(readVisibility(payload));
                 boolean ok = TaskService.updateTask(task, oldTask);
                 if (ok && payload.hasKey("status")) {
                     ok = TaskService
@@ -120,13 +132,13 @@ public final class NetTaskAction {
                 }
                 assertCanWrite(sender, task);
                 boolean ok = TaskService.deleteTask(payload.getString("taskId"));
-                if (ok) NetTaskSync.sendSync(sender, true);
+                if (ok) sendTaskAndTagSync(sender);
                 else NetError.send(sender, NetError.NOT_FOUND, "task not found");
             } else if ("add_tag".equals(action)) {
                 Task task = requireTask(payload.getString("taskId"), sender);
                 boolean ok = TagService
                     .addTagToTask(contextForTask(sender, task), task.getId(), readUuid(payload, "tagId"));
-                if (ok) NetTaskSync.sendSync(sender, true);
+                if (ok) sendTaskAndTagSync(sender);
                 else NetError.send(sender, NetError.SERVER_ERROR, "tag add failed");
             } else if ("add_tag_by_name".equals(action)) {
                 Task task = requireTask(payload.getString("taskId"), sender);
@@ -137,20 +149,28 @@ public final class NetTaskAction {
                     payload.getString("description"),
                     payload.getString("colorCode"),
                     readTagScope(payload));
-                if (tag != null) NetTaskSync.sendSync(sender, true);
+                if (tag != null) sendTaskAndTagSync(sender);
                 else NetError.send(sender, NetError.SERVER_ERROR, "tag add failed");
             } else if ("remove_tag".equals(action)) {
                 Task task = requireTask(payload.getString("taskId"), sender);
                 boolean ok = TagService
                     .removeTagFromTask(contextForTask(sender, task), task.getId(), readUuid(payload, "tagId"));
-                if (ok) NetTaskSync.sendSync(sender, true);
+                if (ok) sendTaskAndTagSync(sender);
                 else NetError.send(sender, NetError.NOT_FOUND, "tag link not found");
             } else if ("set_tags".equals(action)) {
                 Task task = requireTask(payload.getString("taskId"), sender);
                 boolean ok = TagService
                     .setTagsForTask(contextForTask(sender, task), task.getId(), readUuidList(payload, "tagIds"));
-                if (ok) NetTaskSync.sendSync(sender, true);
+                if (ok) sendTaskAndTagSync(sender);
                 else NetError.send(sender, NetError.SERVER_ERROR, "tag set failed");
+            } else if ("assign".equals(action)) {
+                Task task = requireTask(payload.getString("taskId"), sender);
+                assertCanWrite(sender, task);
+                List<UUID> assignees = payload.hasKey("assigneeIds") ? readUuidList(payload, "assigneeIds")
+                    : singleUuid(readUuid(payload, "assigneeId"));
+                boolean ok = TaskService.setAssigneesForTask(contextForTask(sender, task), task.getId(), assignees);
+                if (ok) NetTaskSync.sendSync(sender, true);
+                else NetError.send(sender, NetError.SERVER_ERROR, "task assign failed");
             } else {
                 NetError.send(sender, NetError.INVALID_ACTION, action);
             }
@@ -184,7 +204,14 @@ public final class NetTaskAction {
 
     private static Task.TaskStatus readStatus(NBTTagCompound payload) {
         if (!payload.hasKey("status")) return Task.TaskStatus.UnClaimed;
-        return Task.TaskStatus.valueOf(payload.getString("status"));
+        String status = payload.getString("status");
+        if ("UnStarted".equals(status)) return Task.TaskStatus.Claimed;
+        return Task.TaskStatus.valueOf(status);
+    }
+
+    private static Task.PrivacyLevel readVisibility(NBTTagCompound payload) {
+        if (!payload.hasKey("visibility")) return Task.PrivacyLevel.PRIVATE;
+        return Task.PrivacyLevel.valueOf(payload.getString("visibility"));
     }
 
     private static Tag.TagScope readTagScope(NBTTagCompound payload) {
@@ -192,13 +219,25 @@ public final class NetTaskAction {
         return Tag.TagScope.valueOf(payload.getString("scope"));
     }
 
+    private static Tag.TagScope readNewTagScope(NBTTagCompound payload) {
+        if (!payload.hasKey("newTagScope")) return Tag.TagScope.PUBLIC;
+        return Tag.TagScope.valueOf(payload.getString("newTagScope"));
+    }
+
     private static List<UUID> readUuidList(NBTTagCompound payload, String key) {
         List<UUID> values = new ArrayList<>();
         if (!payload.hasKey(key)) return values;
         NBTTagList list = payload.getTagList(key, 8);
         for (int i = 0; i < list.tagCount(); i++) {
-            values.add(UUID.fromString(list.getStringTagAt(i)));
+            String value = list.getStringTagAt(i);
+            if (value != null && !value.isEmpty()) values.add(UUID.fromString(value));
         }
+        return values;
+    }
+
+    private static List<UUID> singleUuid(UUID value) {
+        List<UUID> values = new ArrayList<>();
+        if (value != null) values.add(value);
         return values;
     }
 
@@ -228,6 +267,36 @@ public final class NetTaskAction {
 
     private static TaskService.PermissionContext contextForTask(EntityPlayerMP sender, Task task) {
         return TeamService.contextFor(sender.getUniqueID(), task.getTeamId(), isOp(sender));
+    }
+
+    private static void applyCreatedTaskTags(EntityPlayerMP sender, Task task, NBTTagCompound payload) {
+        TaskService.PermissionContext context = contextForTask(sender, task);
+        for (UUID tagId : readUuidList(payload, "tagIds")) {
+            TagService.addTagToTask(context, task.getId(), tagId);
+        }
+        if (payload.hasKey("newTagName") && !payload.getString("newTagName")
+            .trim()
+            .isEmpty()) {
+            TagService.addTagToTask(
+                context,
+                task.getId(),
+                payload.getString("newTagName"),
+                payload.getString("newTagDescription"),
+                payload.getString("newTagColorCode"),
+                readNewTagScope(payload));
+        }
+    }
+
+    private static void applyCreatedTaskAssignee(EntityPlayerMP sender, Task task, NBTTagCompound payload) {
+        List<UUID> assignees = payload.hasKey("assigneeIds") ? readUuidList(payload, "assigneeIds")
+            : singleUuid(readUuid(payload, "assigneeId"));
+        if (assignees.isEmpty()) return;
+        TaskService.setAssigneesForTask(contextForTask(sender, task), task.getId(), assignees);
+    }
+
+    private static void sendTaskAndTagSync(EntityPlayerMP sender) {
+        NetTaskSync.sendSync(sender, true);
+        NetTagSync.sendSync(sender, true);
     }
 
     private static final class TaskNotFoundException extends RuntimeException {

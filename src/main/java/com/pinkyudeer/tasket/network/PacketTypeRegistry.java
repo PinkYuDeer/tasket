@@ -13,6 +13,8 @@ import net.minecraft.util.ResourceLocation;
 import com.pinkyudeer.tasket.network.handler.NetError;
 import com.pinkyudeer.tasket.network.handler.NetInviteSync;
 import com.pinkyudeer.tasket.network.handler.NetMainSync;
+import com.pinkyudeer.tasket.network.handler.NetTagAction;
+import com.pinkyudeer.tasket.network.handler.NetTagSync;
 import com.pinkyudeer.tasket.network.handler.NetTaskAction;
 import com.pinkyudeer.tasket.network.handler.NetTaskSync;
 import com.pinkyudeer.tasket.network.handler.NetTeamAction;
@@ -36,6 +38,8 @@ public final class PacketTypeRegistry {
         NetTaskSync.registerHandler();
         NetTeamAction.registerHandler();
         NetTeamSync.registerHandler();
+        NetTagAction.registerHandler();
+        NetTagSync.registerHandler();
         NetInviteSync.registerHandler();
         NetError.registerHandler();
     }

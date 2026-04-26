@@ -11,6 +11,8 @@ import com.pinkyudeer.tasket.client.TaskClientStore;
 import com.pinkyudeer.tasket.network.PacketIds;
 import com.pinkyudeer.tasket.network.PacketSender;
 import com.pinkyudeer.tasket.network.PacketTypeRegistry;
+import com.pinkyudeer.tasket.task.dao.PlayerDao;
+import com.pinkyudeer.tasket.task.entity.Player;
 import com.pinkyudeer.tasket.task.entity.Team;
 import com.pinkyudeer.tasket.task.entity.record.TeamMember;
 import com.pinkyudeer.tasket.task.service.TeamService;
@@ -33,7 +35,7 @@ public final class NetTeamSync {
         payload.setBoolean("merge", merge);
         NBTTagList list = new NBTTagList();
         for (Team team : TeamService.getVisibleTeams(player.getUniqueID())) {
-            list.appendTag(writeTeam(team, TeamService.getMembers(team.getId())));
+            list.appendTag(writeTeam(player, team, TeamService.getMembers(team.getId())));
         }
         payload.setTag("data", list);
         PacketSender.INSTANCE.sendToPlayers(PacketIds.TEAM_SYNC, payload, player);
@@ -47,7 +49,7 @@ public final class NetTeamSync {
         TaskClientStore.INSTANCE.acceptTeamSync(payload.getTagList("data", 10), payload.getBoolean("merge"));
     }
 
-    private static NBTTagCompound writeTeam(Team team, List<TeamMember> members) {
+    private static NBTTagCompound writeTeam(EntityPlayerMP viewer, Team team, List<TeamMember> members) {
         NBTTagCompound tag = new NBTTagCompound();
         tag.setString(
             "id",
@@ -84,6 +86,13 @@ public final class NetTeamSync {
                 member.getPlayerId() == null ? ""
                     : member.getPlayerId()
                         .toString());
+            Player player = member.getPlayerId() == null ? null : PlayerDao.selectById(member.getPlayerId());
+            memberTag.setString(
+                "playerName",
+                player == null || player.getPlayerName() == null ? "" : player.getPlayerName());
+            memberTag.setString(
+                "displayName",
+                player == null || player.getDisplayName() == null ? "" : player.getDisplayName());
             memberTag.setString(
                 "role",
                 member.getRole() == null ? ""
@@ -97,6 +106,22 @@ public final class NetTeamSync {
             memberList.appendTag(memberTag);
         }
         tag.setTag("members", memberList);
+
+        NBTTagList onlinePlayers = new NBTTagList();
+        if (viewer != null && viewer.mcServer != null && viewer.mcServer.getConfigurationManager() != null) {
+            for (Object entry : viewer.mcServer.getConfigurationManager().playerEntityList) {
+                if (!(entry instanceof EntityPlayerMP online)) continue;
+                NBTTagCompound playerTag = new NBTTagCompound();
+                playerTag.setString(
+                    "playerId",
+                    online.getUniqueID()
+                        .toString());
+                playerTag.setString("playerName", online.getCommandSenderName());
+                playerTag.setString("displayName", online.getDisplayName());
+                onlinePlayers.appendTag(playerTag);
+            }
+        }
+        tag.setTag("onlinePlayers", onlinePlayers);
         return tag;
     }
 

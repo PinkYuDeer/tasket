@@ -38,6 +38,7 @@ public class GLShaderDrawHelper {
         public float continuityIndex = 3.0f;
         public int colorBg = 0x00000000;
         private boolean useComplexShader = false;
+        public boolean containedBounds = false;
 
         // 矩形 参数
         public float[] rectSize = { 1f, 1f };
@@ -256,12 +257,21 @@ public class GLShaderDrawHelper {
                 extraLeft = (Math.abs(Math.min(0, extraLeft)) + extraAll);
                 extraRight = (Math.abs(Math.max(0, extraRight)) + extraAll);
 
-                this.renderSize = new float[] { (renderSizeP[0] + extraLeft + extraRight) * this.renderSize[0],
-                    (renderSizeP[1] + extraTop + extraBottom) * this.renderSize[1] };
-                this.renderOffset = new float[] { this.renderOffset[0] - extraLeft, this.renderOffset[1] - extraTop };
-                this.rectSize = new float[] { width / this.renderSize[0], height / this.renderSize[1] };
-                this.rectCenter = new float[] { (extraLeft + width / 2) / renderSize[0] + this.rectCenter[0],
-                    (extraTop + height / 2) / renderSize[1] + this.rectCenter[1] };
+                if (this.containedBounds) {
+                    // 严格限制在请求 (width,height) 内：画布不外扩，外侧柔化由画布裁剪
+                    this.renderSize = new float[] { renderSizeP[0] * this.renderSize[0],
+                        renderSizeP[1] * this.renderSize[1] };
+                    this.rectSize = new float[] { width / this.renderSize[0], height / this.renderSize[1] };
+                    this.rectCenter = new float[] { 0.5f + this.rectCenter[0], 0.5f + this.rectCenter[1] };
+                } else {
+                    this.renderSize = new float[] { (renderSizeP[0] + extraLeft + extraRight) * this.renderSize[0],
+                        (renderSizeP[1] + extraTop + extraBottom) * this.renderSize[1] };
+                    this.renderOffset = new float[] { this.renderOffset[0] - extraLeft,
+                        this.renderOffset[1] - extraTop };
+                    this.rectSize = new float[] { width / this.renderSize[0], height / this.renderSize[1] };
+                    this.rectCenter = new float[] { (extraLeft + width / 2) / renderSize[0] + this.rectCenter[0],
+                        (extraTop + height / 2) / renderSize[1] + this.rectCenter[1] };
+                }
             } else {
                 float extraPix = this.borderThickness * minSize * (-this.borderPos + 0.5f);
                 this.renderSize = new float[] { (renderSizeP[0] + extraPix * 2) * this.renderSize[0],

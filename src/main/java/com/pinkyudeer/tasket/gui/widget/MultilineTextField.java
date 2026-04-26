@@ -24,18 +24,28 @@ public class MultilineTextField extends BaseTextFieldWidget<MultilineTextField> 
         this.textAlignment = Alignment.TopLeft;
         padding(2, 6);
         getScrollArea().setScrollDataY(new VerticalScrollData(false, 4));
+        ensureTextLine();
     }
 
     @Override
     protected void drawText(ModularGuiContext context, TextFieldTheme widgetTheme) {
-        if (this.handler.isTextEmpty() && this.hintText != null) {
-            int c = this.renderer.getColor();
-            int hintColor = this.hintTextColor != null ? this.hintTextColor : widgetTheme.getHintColor();
-            this.renderer.setColor(hintColor);
-            this.renderer.draw(Collections.singletonList(this.hintText));
-            this.renderer.setColor(c);
-        } else {
-            this.renderer.draw(this.handler.getText());
+        ensureTextLine();
+        try {
+            if (this.handler.isTextEmpty() && this.hintText != null) {
+                int c = this.renderer.getColor();
+                int hintColor = this.hintTextColor != null ? this.hintTextColor : widgetTheme.getHintColor();
+                this.renderer.setColor(hintColor);
+                this.renderer.draw(Collections.singletonList(this.hintText));
+                this.renderer.setColor(c);
+            } else {
+                this.renderer.draw(this.handler.getText());
+            }
+        } catch (IndexOutOfBoundsException ignored) {
+            try {
+                this.renderer.draw(Collections.singletonList(" "));
+            } catch (IndexOutOfBoundsException ignoredAgain) {
+                // ModularUI2 can briefly report no measured line while resizing/focusing an empty field.
+            }
         }
         if (getScrollArea().getScrollX() != null) {
             getScrollArea().getScrollX()
@@ -48,6 +58,7 @@ public class MultilineTextField extends BaseTextFieldWidget<MultilineTextField> 
     }
 
     public String getFullText() {
+        ensureTextLine();
         return String.join("\n", this.handler.getText());
     }
 
@@ -60,6 +71,14 @@ public class MultilineTextField extends BaseTextFieldWidget<MultilineTextField> 
                     .add(line);
             }
         } else {
+            this.handler.getText()
+                .add("");
+        }
+    }
+
+    private void ensureTextLine() {
+        if (this.handler.getText()
+            .isEmpty()) {
             this.handler.getText()
                 .add("");
         }
