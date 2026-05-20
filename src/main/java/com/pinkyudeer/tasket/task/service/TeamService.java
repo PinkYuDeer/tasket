@@ -8,7 +8,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.pinkyudeer.tasket.Tasket;
-import com.pinkyudeer.tasket.db.EntityHandler;
 import com.pinkyudeer.tasket.db.SQLHelper;
 import com.pinkyudeer.tasket.db.SQLiteManager;
 import com.pinkyudeer.tasket.helper.UtilHelper;
@@ -318,22 +317,17 @@ public final class TeamService {
 
     public static TeamMember getMember(UUID teamId, UUID playerId) {
         if (teamId == null || playerId == null) return null;
-        return EntityHandler.handleSingle(
-            SQLHelper.select(TeamMember.class)
-                .where("team_id", SQLHelper.Operator.EQ, teamId)
-                .where("player_id", SQLHelper.Operator.EQ, playerId)
-                .limit(1)
-                .execute(),
-            TeamMember.class);
+        return SQLHelper.select(TeamMember.class)
+            .where("team_id", SQLHelper.Operator.EQ, teamId)
+            .where("player_id", SQLHelper.Operator.EQ, playerId)
+            .first();
     }
 
     public static List<TeamMember> getMembers(UUID teamId) {
         if (teamId == null) return new ArrayList<>();
-        return EntityHandler.handleList(
-            SQLHelper.select(TeamMember.class)
-                .where("team_id", SQLHelper.Operator.EQ, teamId)
-                .execute(),
-            TeamMember.class);
+        return SQLHelper.select(TeamMember.class)
+            .where("team_id", SQLHelper.Operator.EQ, teamId)
+            .list();
     }
 
     public static List<Team> getVisibleTeams(UUID playerId) {

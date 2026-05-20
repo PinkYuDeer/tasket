@@ -65,8 +65,7 @@ public class EventHandler {
 
             TaskSqlHelper.player.login(event.player);
 
-            if (event.player instanceof EntityPlayerMP) {
-                EntityPlayerMP player = (EntityPlayerMP) event.player;
+            if (event.player instanceof EntityPlayerMP player) {
                 TeamService.syncLinkedTeamsForPlayer(player.getUniqueID(), isOp(player));
                 NetMainSync.sendReset(player, true, true);
             }

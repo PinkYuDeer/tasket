@@ -74,7 +74,7 @@ public final class PacketAssembly {
         int part = packet.hasKey("part") ? packet.getInteger("part") : index / BUFFER_SIZE;
         byte[] data = packet.getByteArray("data");
 
-        if (size <= 0 || parts <= 0 || part < 0 || part >= parts || index < 0 || index + data.length > size) {
+        if (size <= 0 || part < 0 || part >= parts || index < 0 || index + data.length > size) {
             Tasket.LOG.error(
                 "Invalid tasket packet fragment: size={}, index={}, part={}, parts={}",
                 size,

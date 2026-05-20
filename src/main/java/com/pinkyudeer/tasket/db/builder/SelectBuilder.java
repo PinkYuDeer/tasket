@@ -7,6 +7,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import javax.sql.rowset.CachedRowSet;
+import javax.sql.rowset.RowSetProvider;
+
+import com.pinkyudeer.tasket.db.EntityHandler;
 import com.pinkyudeer.tasket.db.SQLiteManager;
 import com.pinkyudeer.tasket.db.annotation.Table;
 
@@ -179,10 +183,55 @@ public class SelectBuilder<T> extends BaseBuilder<T, SelectBuilder<T>> {
     /**
      * 执行查询操作。
      *
-     * @return 查询结果集
+     * @return 已脱离数据库连接的查询结果集
      */
     @Override
     public ResultSet execute() {
+        List<Object> executeParams = new ArrayList<>();
+        String sql = buildSelectSql(executeParams);
+        return SQLiteManager.query(sql, rs -> {
+            CachedRowSet rowSet = RowSetProvider.newFactory()
+                .createCachedRowSet();
+            rowSet.populate(rs);
+            return rowSet;
+        }, executeParams.toArray());
+    }
+
+    /**
+     * 在安全的ResultSet生命周期内执行查询回调。
+     *
+     * @param handler 查询结果处理器
+     * @param <R>     返回类型
+     * @return 查询结果
+     */
+    public <R> R query(SQLiteManager.ResultSetHandler<R> handler) {
+        List<Object> executeParams = new ArrayList<>();
+        String sql = buildSelectSql(executeParams);
+        return SQLiteManager.query(sql, handler, executeParams.toArray());
+    }
+
+    /**
+     * 查询并映射为实体列表。
+     *
+     * @return 实体列表
+     */
+    public List<T> list() {
+        return query(rs -> EntityHandler.handleList(rs, entityClass));
+    }
+
+    /**
+     * 查询首行并映射为实体。
+     *
+     * @return 实体对象，不存在时返回null
+     */
+    public T first() {
+        if (limit <= 0) {
+            limit(1);
+        }
+        return query(rs -> EntityHandler.handleSingle(rs, entityClass));
+    }
+
+    private String buildSelectSql(List<Object> executeParams) {
         StringBuilder query = new StringBuilder("SELECT ");
         query.append(selectColumns == null || selectColumns.length == 0 ? "*" : String.join(", ", selectColumns));
         query.append(" FROM ")
@@ -203,7 +252,6 @@ public class SelectBuilder<T> extends BaseBuilder<T, SelectBuilder<T>> {
             }
         }
 
-        List<Object> executeParams = new ArrayList<>();
         query = new StringBuilder(addWhereClause(query.toString(), executeParams, false, "查询"));
 
         if (groupByFields != null && groupByFields.length > 0) query.append(" GROUP BY ")
@@ -225,6 +273,6 @@ public class SelectBuilder<T> extends BaseBuilder<T, SelectBuilder<T>> {
                 .append(offset);
         }
 
-        return (ResultSet) SQLiteManager.executeSafeSQL(query.toString(), executeParams.toArray());
+        return query.toString();
     }
 }

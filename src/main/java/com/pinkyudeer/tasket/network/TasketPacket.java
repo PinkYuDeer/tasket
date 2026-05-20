@@ -14,7 +14,9 @@ import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import io.netty.buffer.ByteBuf;
+import lombok.Getter;
 
+@Getter
 public class TasketPacket implements IMessage {
 
     private NBTTagCompound tags = new NBTTagCompound();
@@ -24,10 +26,6 @@ public class TasketPacket implements IMessage {
 
     public TasketPacket(NBTTagCompound tags) {
         this.tags = tags;
-    }
-
-    public NBTTagCompound getTags() {
-        return tags;
     }
 
     @Override

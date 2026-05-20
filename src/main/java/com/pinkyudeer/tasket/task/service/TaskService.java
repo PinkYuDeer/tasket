@@ -6,8 +6,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 
+import com.github.bsideup.jabel.Desugar;
 import com.pinkyudeer.tasket.Tasket;
-import com.pinkyudeer.tasket.db.EntityHandler;
 import com.pinkyudeer.tasket.db.SQLHelper;
 import com.pinkyudeer.tasket.db.SQLiteManager;
 import com.pinkyudeer.tasket.helper.UtilHelper;
@@ -52,12 +52,12 @@ public class TaskService {
     public static Task createTask(PermissionContext context, String title, String description,
         Task.Importance importance, Task.Urgency urgency, Task.PrivacyLevel visibility) {
         if (context == null) throw new IllegalArgumentException("权限上下文不能为空");
-        if (context.getTeamId() != null && !context.canCreateTeamTask()) {
-            Tasket.LOG.warn("Player {} cannot create task in team {}", context.getActorId(), context.getTeamId());
+        if (context.teamId() != null && !context.canCreateTeamTask()) {
+            Tasket.LOG.warn("Player {} cannot create task in team {}", context.actorId(), context.teamId());
             return null;
         }
-        Task task = new Task(title, description, context.getActorId(), importance, urgency);
-        task.setTeamId(context.getTeamId());
+        Task task = new Task(title, description, context.actorId(), importance, urgency);
+        task.setTeamId(context.teamId());
         task.setVisibility(resolveVisibility(context, visibility));
         Integer result = TaskDao.insert(task);
         if (result == null || result <= 0) {
@@ -80,12 +80,9 @@ public class TaskService {
 
     public static Task getTask(String taskId) {
         try {
-            return EntityHandler.handleSingle(
-                SQLHelper.select(Task.class)
-                    .where("id", SQLHelper.Operator.EQ, taskId)
-                    .limit(1)
-                    .execute(),
-                Task.class);
+            return SQLHelper.select(Task.class)
+                .where("id", SQLHelper.Operator.EQ, taskId)
+                .first();
         } catch (Exception e) {
             Tasket.LOG.error("Failed to fetch task: {}", taskId, e);
             return null;
@@ -161,7 +158,7 @@ public class TaskService {
                     Tasket.LOG.error("Task not found: {}", taskId);
                     return false;
                 }
-                if (!canWriteTask(context, task)) throw new SecurityException("无权指派此任务");
+                if (canWriteTask(context, task)) throw new SecurityException("无权指派此任务");
 
                 LinkedHashSet<UUID> targetIds = new LinkedHashSet<>();
                 if (assigneeIds != null) {
@@ -186,7 +183,7 @@ public class TaskService {
                     if (task.getStatus() == TaskStatus.UnClaimed) task.setStatus(TaskStatus.Claimed);
                 }
                 task.setUpdateTime(LocalDateTime.now());
-                task.setLastOperator(context.getActorId());
+                task.setLastOperator(context.actorId());
                 task.setVersion((task.getVersion() == null ? 0 : task.getVersion()) + 1);
 
                 UUID taskUuid = UUID.fromString(taskId);
@@ -203,7 +200,7 @@ public class TaskService {
                         TaskInteraction.InteractionType.ASSIGN,
                         taskUuid,
                         assigneeId,
-                        context.getActorId());
+                        context.actorId());
                     TaskInteractionDao.insert(interaction);
                 }
 
@@ -212,7 +209,7 @@ public class TaskService {
 
                 if (oldStatus != task.getStatus()) {
                     StatusChangeRecord record = new StatusChangeRecord(
-                        context.getActorId(),
+                        context.actorId(),
                         UUID.fromString(taskId),
                         oldStatus,
                         task.getStatus());
@@ -246,13 +243,11 @@ public class TaskService {
 
     private static List<TaskInteraction> activeAssignmentRecords(UUID taskId) {
         if (taskId == null) return Collections.emptyList();
-        return EntityHandler.handleList(
-            TaskInteractionDao.select()
-                .where("task_id", SQLHelper.Operator.EQ, taskId)
-                .where("type", SQLHelper.Operator.EQ, TaskInteraction.InteractionType.ASSIGN)
-                .where("status", SQLHelper.Operator.EQ, TaskInteraction.InteractionStatus.ACTIVE)
-                .execute(),
-            TaskInteraction.class);
+        return TaskInteractionDao.select()
+            .where("task_id", SQLHelper.Operator.EQ, taskId)
+            .where("type", SQLHelper.Operator.EQ, TaskInteraction.InteractionType.ASSIGN)
+            .where("status", SQLHelper.Operator.EQ, TaskInteraction.InteractionStatus.ACTIVE)
+            .list();
     }
 
     public static boolean completeTask(String taskId, UUID operatorId) {
@@ -267,11 +262,9 @@ public class TaskService {
         try {
             List<String> excluded = java.util.Arrays
                 .asList(TaskStatus.Completed.name(), TaskStatus.Closed.name(), TaskStatus.Canceled.name());
-            return EntityHandler.handleList(
-                SQLHelper.select(Task.class)
-                    .where("status", SQLHelper.Operator.NOT_IN, excluded)
-                    .execute(),
-                Task.class);
+            return SQLHelper.select(Task.class)
+                .where("status", SQLHelper.Operator.NOT_IN, excluded)
+                .list();
         } catch (Exception e) {
             Tasket.LOG.error("Failed to fetch active tasks", e);
             return Collections.emptyList();
@@ -308,27 +301,27 @@ public class TaskService {
     }
 
     public static boolean canWriteTask(PermissionContext context, Task task) {
-        if (context == null || task == null) return false;
-        if (context.isOp()) return true;
-        if (context.getActorId() != null && context.getActorId()
-            .equals(task.getCreator())) return true;
+        if (context == null || task == null) return true;
+        if (context.op()) return false;
+        if (context.actorId() != null && context.actorId()
+            .equals(task.getCreator())) return false;
         if (task.getTeamId() != null && task.getTeamId()
-            .equals(context.getTeamId())) {
-            return context.canAssignTeamTask();
+            .equals(context.teamId())) {
+            return !context.canAssignTeamTask();
         }
-        return false;
+        return true;
     }
 
     private static Task.PrivacyLevel resolveVisibility(PermissionContext context, Task.PrivacyLevel requested) {
-        if (requested == null) return context.getTeamId() == null ? Task.PrivacyLevel.PRIVATE : Task.PrivacyLevel.TEAM;
-        if (requested == Task.PrivacyLevel.TEAM && context.getTeamId() == null) return Task.PrivacyLevel.PRIVATE;
+        if (requested == null) return context.teamId() == null ? Task.PrivacyLevel.PRIVATE : Task.PrivacyLevel.TEAM;
+        if (requested == Task.PrivacyLevel.TEAM && context.teamId() == null) return Task.PrivacyLevel.PRIVATE;
         return requested;
     }
 
     private static void assertAssigneeAllowed(PermissionContext context, Task task, UUID assigneeId) {
         if (assigneeId == null) return;
         if (task.getTeamId() == null) {
-            if (!assigneeId.equals(context.getActorId())) throw new SecurityException("个人任务只能指派给自己");
+            if (!assigneeId.equals(context.actorId())) throw new SecurityException("个人任务只能指派给自己");
             return;
         }
         TeamMember member = TeamService.getMember(task.getTeamId(), assigneeId);
@@ -379,11 +372,9 @@ public class TaskService {
 
     public static List<Task> getSubtasks(String parentTaskId) {
         try {
-            return EntityHandler.handleList(
-                SQLHelper.select(Task.class)
-                    .where("parent_task_id", SQLHelper.Operator.EQ, parentTaskId)
-                    .execute(),
-                Task.class);
+            return SQLHelper.select(Task.class)
+                .where("parent_task_id", SQLHelper.Operator.EQ, parentTaskId)
+                .list();
         } catch (Exception e) {
             Tasket.LOG.error("Failed to fetch subtasks for: {}", parentTaskId, e);
             return Collections.emptyList();
@@ -399,35 +390,8 @@ public class TaskService {
         }
     }
 
-    public static class PermissionContext {
-
-        private final UUID actorId;
-        private final UUID teamId;
-        private final Team.TeamRole teamRole;
-        private final boolean op;
-
-        public PermissionContext(UUID actorId, UUID teamId, Team.TeamRole teamRole, boolean op) {
-            this.actorId = actorId;
-            this.teamId = teamId;
-            this.teamRole = teamRole;
-            this.op = op;
-        }
-
-        public UUID getActorId() {
-            return actorId;
-        }
-
-        public UUID getTeamId() {
-            return teamId;
-        }
-
-        public Team.TeamRole getTeamRole() {
-            return teamRole;
-        }
-
-        public boolean isOp() {
-            return op;
-        }
+    @Desugar
+    public record PermissionContext(UUID actorId, UUID teamId, Team.TeamRole teamRole, boolean op) {
 
         public boolean canCreateTeamTask() {
             return op || teamId == null || teamRole == Team.TeamRole.ADMIN || teamRole == Team.TeamRole.MEMBER;

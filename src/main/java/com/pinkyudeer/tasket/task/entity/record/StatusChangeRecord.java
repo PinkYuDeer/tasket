@@ -55,6 +55,8 @@ public class StatusChangeRecord extends BaseRecord {
     @Column(name = "metadata")
     private String metadata; // 附加信息（如审批流程ID、阻塞原因等）
 
+    public StatusChangeRecord() {}
+
     public StatusChangeRecord(@Nonnull UUID operatorId, @Nonnull UUID taskId, @Nonnull Task.TaskStatus oldStatus,
         @Nonnull Task.TaskStatus newStatus) {
         super(operatorId);

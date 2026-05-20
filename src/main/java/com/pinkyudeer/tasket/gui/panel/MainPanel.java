@@ -24,8 +24,7 @@ import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.widgets.ListWidget;
-import com.cleanroommc.modularui.widgets.layout.Column;
-import com.cleanroommc.modularui.widgets.layout.Row;
+import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.pinkyudeer.tasket.client.TaskClientStore;
 import com.pinkyudeer.tasket.gui.GuiStyle;
 import com.pinkyudeer.tasket.gui.drawable.ShaderDrawable;
@@ -70,7 +69,7 @@ public class MainPanel extends ModularPanel {
     }
 
     private final TaskScreen taskScreen;
-    private Column contentArea;
+    private Flow contentArea;
     private ListWidget<IWidget, ?> taskListWidget;
     private ListWidget<IWidget, ?> teamListWidget;
     private ListWidget<IWidget, ?> tagListWidget;
@@ -204,8 +203,8 @@ public class MainPanel extends ModularPanel {
 
     // --- Layout ---
 
-    private Row buildLayout() {
-        Row layout = new Row();
+    private Flow buildLayout() {
+        Flow layout = Flow.row();
         layout.widthRel(1f)
             .heightRel(1f)
             .padding(6)
@@ -215,8 +214,8 @@ public class MainPanel extends ModularPanel {
         return layout;
     }
 
-    private Column buildSidebar() {
-        Column sidebar = new Column();
+    private Flow buildSidebar() {
+        Flow sidebar = Flow.column();
         sidebar.widthRel(0.18f)
             .heightRel(1f)
             .name("main/sidebar");
@@ -280,8 +279,8 @@ public class MainPanel extends ModularPanel {
                 .shadow(active));
     }
 
-    private Column buildContentArea() {
-        contentArea = new Column();
+    private Flow buildContentArea() {
+        contentArea = Flow.column();
         contentArea.widthRel(0.82f)
             .heightRel(1f)
             .name("main/content");
@@ -325,8 +324,8 @@ public class MainPanel extends ModularPanel {
         contentArea.scheduleResize();
     }
 
-    private Row buildHeader() {
-        Row header = new Row();
+    private Flow buildHeader() {
+        Flow header = Flow.row();
         header.widthRel(1f)
             .height(32)
             .marginBottom(2)
@@ -343,7 +342,8 @@ public class MainPanel extends ModularPanel {
             GuiStyle.button("+ New Task")
                 .widthRel(0.25f)
                 .height(24)
-                .alignY(0.5f)
+                .topRel(0.5f)
+                .anchorTop(0.5f)
                 .name("header/btn_new_task")
                 .onMousePressed(btn -> {
                     openTaskForm();
@@ -352,8 +352,8 @@ public class MainPanel extends ModularPanel {
         return header;
     }
 
-    private Row buildTeamHeader() {
-        Row header = new Row();
+    private Flow buildTeamHeader() {
+        Flow header = Flow.row();
         header.widthRel(1f)
             .height(34)
             .marginBottom(4)
@@ -369,7 +369,8 @@ public class MainPanel extends ModularPanel {
             GuiStyle.button("+ New Team")
                 .widthRel(0.25f)
                 .height(24)
-                .alignY(0.5f)
+                .topRel(0.5f)
+                .anchorTop(0.5f)
                 .name("teams/header/new")
                 .onMousePressed(btn -> {
                     openTeamForm();
@@ -378,8 +379,8 @@ public class MainPanel extends ModularPanel {
         return header;
     }
 
-    private Row buildTagHeader() {
-        Row header = new Row();
+    private Flow buildTagHeader() {
+        Flow header = Flow.row();
         header.widthRel(1f)
             .height(34)
             .marginBottom(4)
@@ -395,7 +396,8 @@ public class MainPanel extends ModularPanel {
             GuiStyle.button("+ New Tag")
                 .widthRel(0.25f)
                 .height(24)
-                .alignY(0.5f)
+                .topRel(0.5f)
+                .anchorTop(0.5f)
                 .name("tags/header/new")
                 .onMousePressed(btn -> {
                     openTagForm();
@@ -404,8 +406,8 @@ public class MainPanel extends ModularPanel {
         return header;
     }
 
-    private Row buildSortBar() {
-        Row bar = new Row();
+    private Flow buildSortBar() {
+        Flow bar = Flow.row();
         bar.widthRel(1f)
             .height(16)
             .marginBottom(4)
@@ -445,7 +447,8 @@ public class MainPanel extends ModularPanel {
             0.85f);
         btn.width(52)
             .height(14)
-            .alignY(0.5f)
+            .topRel(0.5f)
+            .anchorTop(0.5f)
             .marginLeft(3)
             .name("sort_bar/filter_done")
             .onMousePressed(b -> {
@@ -484,7 +487,8 @@ public class MainPanel extends ModularPanel {
             0.85f);
         btn.width(54)
             .height(14)
-            .alignY(0.5f)
+            .topRel(0.5f)
+            .anchorTop(0.5f)
             .marginLeft(3)
             .name("sort_bar/filter_mine")
             .onMousePressed(b -> {
@@ -520,7 +524,8 @@ public class MainPanel extends ModularPanel {
             .button(label + arrow, bg, BTN_HOVER, GuiStyle.BUTTON_PRESSED, active ? 0xFFFFFFff : 0x999999ff, 0.85f);
         btn.width(48)
             .height(14)
-            .alignY(0.5f)
+            .topRel(0.5f)
+            .anchorTop(0.5f)
             .marginLeft(3)
             .name("sort_bar/sort_" + label.toLowerCase())
             .onMousePressed(b -> {
@@ -707,12 +712,12 @@ public class MainPanel extends ModularPanel {
     }
 
     private void addTagRows(List<NBTTagCompound> tags) {
-        Row row = null;
+        Flow row = null;
         int col = 0;
         int columns = tagColumns();
         for (NBTTagCompound tag : tags) {
             if (col == 0) {
-                row = new Row();
+                row = Flow.row();
                 row.widthRel(1f)
                     .height(GuiStyle.TAG_CHIP_HEIGHT + 6)
                     .marginTop(3)
@@ -939,8 +944,7 @@ public class MainPanel extends ModularPanel {
             case InProgress -> "[~] ";
             case Blocked -> "[!] ";
             case Postponed -> "[>] ";
-            case Canceled -> "[x] ";
-            case Rejected -> "[x] ";
+            case Canceled, Rejected -> "[x] ";
             case InTrialRun -> "[?] ";
             default -> "[ ] ";
         };
@@ -1270,9 +1274,8 @@ public class MainPanel extends ModularPanel {
             case Claimed -> 0x66CCFF;
             case Completed -> 0x66CC66;
             case Closed -> 0x666666;
-            case Canceled -> 0xCC4444;
+            case Canceled, Rejected -> 0xCC4444;
             case Blocked -> 0xFF8844;
-            case Rejected -> 0xCC4444;
             case Postponed -> 0xAAAA44;
             case Defect -> 0xFF6644;
             case InTrialRun -> 0x88CCAA;

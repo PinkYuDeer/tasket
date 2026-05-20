@@ -12,8 +12,7 @@ import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.widgets.ListWidget;
-import com.cleanroommc.modularui.widgets.layout.Column;
-import com.cleanroommc.modularui.widgets.layout.Row;
+import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.pinkyudeer.tasket.Tasket;
 import com.pinkyudeer.tasket.client.TeamClientActions;
 import com.pinkyudeer.tasket.gui.GuiStyle;
@@ -55,8 +54,8 @@ public class TeamDetailPanel extends ModularPanel {
         return GuiStyle.shouldKeepTypingFocus(this, keyCode);
     }
 
-    private Column buildContent() {
-        Column root = new Column();
+    private Flow buildContent() {
+        Flow root = Flow.column();
         root.widthRel(1f)
             .heightRel(1f)
             .padding(10)
@@ -70,7 +69,7 @@ public class TeamDetailPanel extends ModularPanel {
                 .widthRel(1f)
                 .height(14));
         root.child(buildSummary());
-        Row body = new Row();
+        Flow body = Flow.row();
         body.widthRel(1f)
             .height(205)
             .marginTop(6)
@@ -82,8 +81,8 @@ public class TeamDetailPanel extends ModularPanel {
         return root;
     }
 
-    private Row buildHeader() {
-        Row header = new Row();
+    private Flow buildHeader() {
+        Flow header = Flow.row();
         header.widthRel(1f)
             .height(18)
             .name("team_detail/header");
@@ -105,8 +104,8 @@ public class TeamDetailPanel extends ModularPanel {
         return header;
     }
 
-    private Row buildSummary() {
-        Row row = new Row();
+    private Flow buildSummary() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(18)
             .marginTop(4);
@@ -123,8 +122,8 @@ public class TeamDetailPanel extends ModularPanel {
             .heightRel(1f);
     }
 
-    private Column buildMembers() {
-        Column col = new Column();
+    private Flow buildMembers() {
+        Flow col = Flow.column();
         col.widthRel(0.55f)
             .heightRel(1f)
             .paddingRight(6)
@@ -165,7 +164,7 @@ public class TeamDetailPanel extends ModularPanel {
         boolean canKick = isOwner() && isLocalTeam()
             && "ACTIVE".equals(status)
             && !player.equals(team.getString("ownerId"));
-        Row row = new Row();
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(17)
             .marginTop(1);
@@ -180,7 +179,7 @@ public class TeamDetailPanel extends ModularPanel {
                     0.78f)
                 .widthRel(canKick ? 0.75f : 1f)
                 .height(15)
-                .onMousePressed(btn -> { return true; }));
+                .onMousePressed(btn -> true));
         if (canKick) {
             row.child(
                 GuiStyle.dangerButton("Kick")
@@ -203,8 +202,8 @@ public class TeamDetailPanel extends ModularPanel {
         return "Unknown";
     }
 
-    private Column buildActionsPane() {
-        Column col = new Column();
+    private Flow buildActionsPane() {
+        Flow col = Flow.column();
         col.widthRel(0.45f)
             .heightRel(1f)
             .paddingLeft(6)
@@ -246,8 +245,8 @@ public class TeamDetailPanel extends ModularPanel {
         return col;
     }
 
-    private Row actionRow(String left, String right, Runnable leftAction, Runnable rightAction) {
-        Row row = new Row();
+    private Flow actionRow(String left, String right, Runnable leftAction, Runnable rightAction) {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(18)
             .marginTop(4);
@@ -271,8 +270,8 @@ public class TeamDetailPanel extends ModularPanel {
         return row;
     }
 
-    private Row buildFooter() {
-        Row footer = new Row();
+    private Flow buildFooter() {
+        Flow footer = Flow.row();
         footer.widthRel(1f)
             .height(20)
             .marginTop(8);
@@ -323,7 +322,7 @@ public class TeamDetailPanel extends ModularPanel {
         int added = 0;
         for (int i = 0; i < players.tagCount(); i++) {
             NBTTagCompound player = players.getCompoundTagAt(i);
-            String playerId = player.getString(onlineOnly ? "playerId" : "playerId");
+            String playerId = player.getString("playerId");
             if (playerId.isEmpty() || (!onlineOnly && playerId.equals(team.getString("ownerId")))) continue;
             if (onlineOnly && isActiveMember(playerId)) continue;
             list.child(

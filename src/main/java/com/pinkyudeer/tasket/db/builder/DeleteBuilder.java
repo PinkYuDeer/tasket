@@ -66,6 +66,6 @@ public class DeleteBuilder<T> extends BaseBuilder<T, DeleteBuilder<T>> {
 
         sql = addWhereClause(sql, executeParams, true, "删除");
 
-        return (Integer) SQLiteManager.executeSafeSQL(sql, executeParams.toArray());
+        return SQLiteManager.executeUpdate(sql, executeParams.toArray());
     }
 }

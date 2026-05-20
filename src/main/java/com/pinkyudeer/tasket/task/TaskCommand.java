@@ -37,21 +37,11 @@ public class TaskCommand extends CommandBase {
         String operation = args[0].toLowerCase();
 
         switch (operation) {
-            case "add" -> {
-                handleAdd(sender, args);
-            }
-            case "remove" -> {
-                handleRemove(sender, args);
-            }
-            case "list" -> {
-                handleList(sender, args);
-            }
-            case "update" -> {
-                handleUpdate(sender, args);
-            }
-            case "done" -> {
-                handleDone(sender, args);
-            }
+            case "add" -> handleAdd(sender, args);
+            case "remove" -> handleRemove(sender, args);
+            case "list" -> handleList(sender, args);
+            case "update" -> handleUpdate(sender, args);
+            case "done" -> handleDone(sender, args);
             case "test" -> {
                 sender.addChatMessage(new ChatComponentText("debug"));
                 // 在此处运行测试代码，根据test后args不同运行不同的测试模块
@@ -134,7 +124,11 @@ public class TaskCommand extends CommandBase {
             return;
         }
         Task task = TaskService.getTask(args[1]);
-        if (!canWriteTask(sender, task)) return;
+        if (task == null) {
+            sendTaskMissing(sender);
+            return;
+        }
+        if (cannotWriteExistingTask(sender, task)) return;
         boolean ok = TaskService.deleteTask(args[1]);
         sender.addChatMessage(new ChatComponentText(ok ? "任务已删除" : "任务删除失败"));
     }
@@ -147,7 +141,11 @@ public class TaskCommand extends CommandBase {
             return;
         }
         Task task = TaskService.getTask(args[1]);
-        if (!canWriteTask(sender, task)) return;
+        if (task == null) {
+            sendTaskMissing(sender);
+            return;
+        }
+        if (cannotWriteExistingTask(sender, task)) return;
         boolean ok = TaskService.completeTask(args[1], player.getUniqueID());
         sender.addChatMessage(new ChatComponentText(ok ? "任务已完成" : "任务完成失败"));
     }
@@ -158,7 +156,11 @@ public class TaskCommand extends CommandBase {
             return;
         }
         Task task = TaskService.getTask(args[1]);
-        if (!canWriteTask(sender, task)) return;
+        if (task == null) {
+            sendTaskMissing(sender);
+            return;
+        }
+        if (cannotWriteExistingTask(sender, task)) return;
         Task oldTask = UtilHelper.deepClone(task, Task.class);
         task.setTitle(args[2]);
         task.setDescription(joinArgs(args, 3));
@@ -166,18 +168,18 @@ public class TaskCommand extends CommandBase {
         sender.addChatMessage(new ChatComponentText(ok ? "任务已更新" : "任务更新失败"));
     }
 
-    private boolean canWriteTask(ICommandSender sender, Task task) {
-        if (task == null) {
-            sender.addChatMessage(new ChatComponentText("任务不存在"));
-            return false;
-        }
-        if (!(sender instanceof EntityPlayerMP player)) return true;
+    private void sendTaskMissing(ICommandSender sender) {
+        sender.addChatMessage(new ChatComponentText("任务不存在"));
+    }
+
+    private boolean cannotWriteExistingTask(ICommandSender sender, Task task) {
+        if (!(sender instanceof EntityPlayerMP player)) return false;
         if (isOp(player) || player.getUniqueID()
             .equals(task.getCreator())) {
-            return true;
+            return false;
         }
         sender.addChatMessage(new ChatComponentText("无权操作此任务"));
-        return false;
+        return true;
     }
 
     private EntityPlayerMP requirePlayer(ICommandSender sender) {

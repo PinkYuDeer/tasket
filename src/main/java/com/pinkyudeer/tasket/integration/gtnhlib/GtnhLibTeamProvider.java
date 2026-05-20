@@ -80,14 +80,9 @@ public class GtnhLibTeamProvider implements TeamProvider {
     }
 
     @Override
-    public boolean isOwner(int partyId, UUID playerId) {
-        return false;
-    }
-
-    @Override
     public boolean isOwner(String teamKey, UUID playerId) {
         Object team = getTeam(teamKey);
-        return team != null && playerId != null && invokeBoolean(team, "isOwner", playerId);
+        return invokeBoolean(team, "isOwner", playerId);
     }
 
     @Override

@@ -86,6 +86,8 @@ public class Notification extends BaseRecord {
     @Column(name = "category_tag")
     private String categoryTag; // 分类标签
 
+    public Notification() {}
+
     public Notification(@Nonnull NotificationType type, @Nonnull String title, @Nonnull UUID receiverId,
         @Nonnull SourceType sourceType, @Nonnull UUID operatorId) {
         super(operatorId);

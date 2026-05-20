@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.UUID;
 
 import com.pinkyudeer.tasket.Tasket;
-import com.pinkyudeer.tasket.db.EntityHandler;
 import com.pinkyudeer.tasket.db.SQLHelper;
 import com.pinkyudeer.tasket.db.SQLiteManager;
+import com.pinkyudeer.tasket.gui.GuiStyle;
 import com.pinkyudeer.tasket.helper.UtilHelper;
 import com.pinkyudeer.tasket.task.dao.TagDao;
 import com.pinkyudeer.tasket.task.dao.record.TagLinkDao;
@@ -37,7 +37,7 @@ public final class TagService {
 
             Tag tag = new Tag(name.trim(), description, normalizeColor(colorCode));
             tag.setScope(finalScope);
-            if (finalScope == Tag.TagScope.PRIVATE) tag.setOwnerId(context.getActorId());
+            if (finalScope == Tag.TagScope.PRIVATE) tag.setOwnerId(context.actorId());
             if (finalScope == Tag.TagScope.TEAM) tag.setOwnerTeamId(ownerTeamId);
             tag.setUpdateTime(LocalDateTime.now());
             Integer result = TagDao.insert(tag);
@@ -80,20 +80,16 @@ public final class TagService {
         return SQLiteManager.transaction(() -> {
             TagLink existing = findTaskLink(taskId, tagId, false);
             if (existing == null) {
-                TagLink link = new TagLink(
-                    tagId,
-                    RelatedEntityType.TASK,
-                    UUID.fromString(taskId),
-                    context.getActorId());
+                TagLink link = new TagLink(tagId, RelatedEntityType.TASK, UUID.fromString(taskId), context.actorId());
                 link.setSourceType(SourceType.PLAYER);
                 link.setVisibility(task.getVisibility() == null ? Task.PrivacyLevel.PRIVATE : task.getVisibility());
                 TagLinkDao.insert(link);
-            } else if (!Boolean.TRUE.equals(existing.getIsActive())) {
+            } else if (!existing.getIsActive()) {
                 TagLink oldLink = UtilHelper.deepClone(existing, TagLink.class);
                 existing.setIsActive(true);
                 existing.setVisibility(task.getVisibility() == null ? Task.PrivacyLevel.PRIVATE : task.getVisibility());
                 existing.setSourceType(SourceType.PLAYER);
-                existing.setOperatorId(context.getActorId());
+                existing.setOperatorId(context.actorId());
                 TagLinkDao.updateByIdByCompare(existing, oldLink);
             }
             updateTagLinkCount(tagId, RelatedEntityType.TASK);
@@ -105,7 +101,7 @@ public final class TagService {
         String description, String colorCode, Tag.TagScope scope) {
         Task task = requireWritableTask(context, taskId);
         Tag.TagScope finalScope = scope == null ? Tag.TagScope.PUBLIC : scope;
-        UUID ownerTeamId = finalScope == Tag.TagScope.TEAM ? task.getTeamId() : context.getTeamId();
+        UUID ownerTeamId = finalScope == Tag.TagScope.TEAM ? task.getTeamId() : context.teamId();
         Tag tag = getOrCreateTaskTag(context, tagName, description, colorCode, finalScope, ownerTeamId);
         if (tag == null) return null;
         return addTagToTask(context, taskId, tag.getId()) ? tag : null;
@@ -120,7 +116,7 @@ public final class TagService {
             if (existing == null) return false;
             TagLink oldLink = UtilHelper.deepClone(existing, TagLink.class);
             existing.setIsActive(false);
-            existing.setOperatorId(context.getActorId());
+            existing.setOperatorId(context.actorId());
             TagLinkDao.updateByIdByCompare(existing, oldLink);
             updateTagLinkCount(tag.getId(), RelatedEntityType.TASK);
             return true;
@@ -145,36 +141,30 @@ public final class TagService {
 
     public static List<Tag> getTagsForTask(String taskId) {
         if (isBlank(taskId)) return new ArrayList<>();
-        return EntityHandler.handleList(
-            SQLHelper.select(Tag.class)
-                .join(TagLink.class, UtilHelper.getField(Tag.class, "id"), UtilHelper.getField(TagLink.class, "tagId"))
-                .where("tag_links.entity_type", SQLHelper.Operator.EQ, RelatedEntityType.TASK)
-                .where("tag_links.entity_id", SQLHelper.Operator.EQ, UUID.fromString(taskId))
-                .where("tag_links.is_active", SQLHelper.Operator.EQ, 1)
-                .execute(),
-            Tag.class);
+        return SQLHelper.select(Tag.class)
+            .join(TagLink.class, UtilHelper.getField(Tag.class, "id"), UtilHelper.getField(TagLink.class, "tagId"))
+            .where("tag_links.entity_type", SQLHelper.Operator.EQ, RelatedEntityType.TASK)
+            .where("tag_links.entity_id", SQLHelper.Operator.EQ, UUID.fromString(taskId))
+            .where("tag_links.is_active", SQLHelper.Operator.EQ, 1)
+            .list();
     }
 
     public static List<TagLink> getActiveTaskTagLinks(String taskId) {
         if (isBlank(taskId)) return new ArrayList<>();
-        return EntityHandler.handleList(
-            SQLHelper.select(TagLink.class)
-                .where("entity_type", SQLHelper.Operator.EQ, RelatedEntityType.TASK)
-                .where("entity_id", SQLHelper.Operator.EQ, UUID.fromString(taskId))
-                .where("is_active", SQLHelper.Operator.EQ, 1)
-                .execute(),
-            TagLink.class);
+        return SQLHelper.select(TagLink.class)
+            .where("entity_type", SQLHelper.Operator.EQ, RelatedEntityType.TASK)
+            .where("entity_id", SQLHelper.Operator.EQ, UUID.fromString(taskId))
+            .where("is_active", SQLHelper.Operator.EQ, 1)
+            .list();
     }
 
     public static List<Task> getTasksByTag(UUID tagId, UUID viewerId, boolean isOp) {
         if (tagId == null) return new ArrayList<>();
-        List<TagLink> links = EntityHandler.handleList(
-            SQLHelper.select(TagLink.class)
-                .where("tag_id", SQLHelper.Operator.EQ, tagId)
-                .where("entity_type", SQLHelper.Operator.EQ, RelatedEntityType.TASK)
-                .where("is_active", SQLHelper.Operator.EQ, 1)
-                .execute(),
-            TagLink.class);
+        List<TagLink> links = SQLHelper.select(TagLink.class)
+            .where("tag_id", SQLHelper.Operator.EQ, tagId)
+            .where("entity_type", SQLHelper.Operator.EQ, RelatedEntityType.TASK)
+            .where("is_active", SQLHelper.Operator.EQ, 1)
+            .list();
         List<Task> tasks = new ArrayList<>();
         for (TagLink link : links) {
             Task task = TaskService.getTask(
@@ -232,23 +222,23 @@ public final class TagService {
 
     private static void assertCanCreateTag(TaskService.PermissionContext context, Tag.TagScope scope,
         UUID ownerTeamId) {
-        if (context.isOp()) return;
+        if (context.op()) return;
         if (scope == Tag.TagScope.SYSTEM) throw new SecurityException("只有 OP 可创建系统标签");
         if (scope == Tag.TagScope.PRIVATE || scope == Tag.TagScope.PUBLIC) return;
         if (scope == Tag.TagScope.TEAM && ownerTeamId != null
-            && ownerTeamId.equals(context.getTeamId())
-            && context.getTeamRole() != null) {
+            && ownerTeamId.equals(context.teamId())
+            && context.teamRole() != null) {
             return;
         }
         throw new SecurityException("无权创建团队标签");
     }
 
     private static void assertCanEditTag(TaskService.PermissionContext context, Tag tag) {
-        if (context.isOp()) return;
+        if (context.op()) return;
         Tag.TagScope scope = tag.getScope();
         if (scope == Tag.TagScope.SYSTEM) throw new SecurityException("只有 OP 可修改系统标签");
         if (scope == Tag.TagScope.PRIVATE) {
-            if (context.getActorId() == null || !context.getActorId()
+            if (context.actorId() == null || !context.actorId()
                 .equals(tag.getOwnerId())) {
                 throw new SecurityException("私有标签只能由拥有者修改");
             }
@@ -256,7 +246,7 @@ public final class TagService {
         }
         if (scope == Tag.TagScope.TEAM) {
             UUID tagTeam = tag.getOwnerTeamId();
-            if (tagTeam == null || !tagTeam.equals(context.getTeamId()) || context.getTeamRole() == null) {
+            if (tagTeam == null || !tagTeam.equals(context.teamId()) || context.teamRole() == null) {
                 throw new SecurityException("无权修改团队标签");
             }
             return;
@@ -269,28 +259,28 @@ public final class TagService {
         if (isBlank(taskId)) throw new IllegalArgumentException("任务 ID 不能为空");
         Task task = TaskService.getTask(taskId);
         if (task == null) throw new IllegalArgumentException("任务不存在");
-        if (!TaskService.canWriteTask(context, task)) throw new SecurityException("无权修改任务标签");
+        if (TaskService.canWriteTask(context, task)) throw new SecurityException("无权修改任务标签");
         return task;
     }
 
     private static Tag requireVisibleTag(TaskService.PermissionContext context, UUID tagId) {
         Tag tag = getTag(tagId);
         if (tag == null) throw new IllegalArgumentException("标签不存在");
-        if (!canViewTag(context.getActorId(), context.isOp(), context.getTeamId(), tag)) {
+        if (!canViewTag(context.actorId(), context.op(), context.teamId(), tag)) {
             throw new SecurityException("无权使用此标签");
         }
         return tag;
     }
 
     private static void assertTagAppliesToTask(TaskService.PermissionContext context, Tag tag, Task task) {
-        if (context.isOp()) return;
+        if (context.op()) return;
         if (tag.getScope() == Tag.TagScope.TEAM) {
             UUID tagTeam = tag.getOwnerTeamId();
             if (tagTeam == null || task.getTeamId() == null || !tagTeam.equals(task.getTeamId())) {
                 throw new SecurityException("团队标签只能用于同团队任务");
             }
         }
-        if (tag.getScope() == Tag.TagScope.PRIVATE && !context.getActorId()
+        if (tag.getScope() == Tag.TagScope.PRIVATE && !context.actorId()
             .equals(tag.getOwnerId())) {
             throw new SecurityException("私有标签只能由拥有者使用");
         }
@@ -312,21 +302,19 @@ public final class TagService {
             if (scope != null && tag.getScope() != scope) continue;
             if (scope == Tag.TagScope.TEAM && ownerTeamId != null && !ownerTeamId.equals(tag.getOwnerTeamId()))
                 continue;
-            if (canViewTag(context.getActorId(), context.isOp(), context.getTeamId(), tag)) return tag;
+            if (canViewTag(context.actorId(), context.op(), context.teamId(), tag)) return tag;
         }
         return null;
     }
 
     private static TagLink findTaskLink(String taskId, UUID tagId, boolean activeOnly) {
-        List<TagLink> links = EntityHandler.handleList(
-            SQLHelper.select(TagLink.class)
-                .where("tag_id", SQLHelper.Operator.EQ, tagId)
-                .where("entity_type", SQLHelper.Operator.EQ, RelatedEntityType.TASK)
-                .where("entity_id", SQLHelper.Operator.EQ, UUID.fromString(taskId))
-                .execute(),
-            TagLink.class);
+        List<TagLink> links = SQLHelper.select(TagLink.class)
+            .where("tag_id", SQLHelper.Operator.EQ, tagId)
+            .where("entity_type", SQLHelper.Operator.EQ, RelatedEntityType.TASK)
+            .where("entity_id", SQLHelper.Operator.EQ, UUID.fromString(taskId))
+            .list();
         for (TagLink link : links) {
-            if (!activeOnly || Boolean.TRUE.equals(link.getIsActive())) return link;
+            if (!activeOnly || link.getIsActive()) return link;
         }
         return null;
     }
@@ -353,8 +341,7 @@ public final class TagService {
     }
 
     private static String normalizeColor(String colorCode) {
-        if (colorCode == null || !colorCode.matches("^#[0-9a-fA-F]{6}$")) return "#FFFFFF";
-        return colorCode.toUpperCase();
+        return GuiStyle.normalizeColor(colorCode);
     }
 
     private static boolean isBlank(String value) {

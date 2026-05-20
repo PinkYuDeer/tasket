@@ -3,6 +3,7 @@ package com.pinkyudeer.tasket.db.builder;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.github.bsideup.jabel.Desugar;
 import com.pinkyudeer.tasket.db.builder.SQLUtils.SQLTableUtils;
 
 /**
@@ -37,12 +38,9 @@ public class AlterTableBuilder<T> extends BaseDDLBuilder<T, AlterTableBuilder<T>
     /**
      * 列操作类
      */
-    private static class ColumnOperation {
-
-        private final OperationType type;
-        private final String columnName;
-        private final String newColumnName;
-        private final String columnDefinition;
+    @Desugar
+    private record ColumnOperation(OperationType type, String columnName, String newColumnName,
+        String columnDefinition) {
 
         /**
          * 构造函数
@@ -52,12 +50,7 @@ public class AlterTableBuilder<T> extends BaseDDLBuilder<T, AlterTableBuilder<T>
          * @param newColumnName    新列名（仅用于重命名操作）
          * @param columnDefinition 列定义（仅用于添加和修改操作）
          */
-        public ColumnOperation(OperationType type, String columnName, String newColumnName, String columnDefinition) {
-            this.type = type;
-            this.columnName = columnName;
-            this.newColumnName = newColumnName;
-            this.columnDefinition = columnDefinition;
-        }
+        private ColumnOperation {}
 
         /**
          * 生成SQL语句

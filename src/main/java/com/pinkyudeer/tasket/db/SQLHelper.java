@@ -253,7 +253,7 @@ public class SQLHelper {
      * @return 实体对象列表
      */
     public static <T> List<T> selectAllFrom(Class<T> entityClass) {
-        return EntityHandler.handleList(select(entityClass).execute(), entityClass);
+        return select(entityClass).list();
     }
 
     /**
@@ -265,11 +265,8 @@ public class SQLHelper {
      * @return 实体对象
      */
     public static <T> T selectByPremiereKey(Class<T> entityClass, UUID id) {
-        return EntityHandler.handleSingle(
-            select(entityClass).where("id", SQLHelper.Operator.EQ, id)
-                .limit(1)
-                .execute(),
-            entityClass);
+        return select(entityClass).where("id", SQLHelper.Operator.EQ, id)
+            .first();
     }
 
     /**

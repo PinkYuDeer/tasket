@@ -11,6 +11,7 @@ import com.cleanroommc.modularui.screen.viewport.GuiContext;
 import com.cleanroommc.modularui.theme.WidgetTheme;
 import com.cleanroommc.modularui.widgets.textfield.BaseTextFieldWidget;
 import com.cleanroommc.modularui.widgets.textfield.TextFieldWidget;
+import com.github.bsideup.jabel.Desugar;
 import com.pinkyudeer.tasket.gui.drawable.ShaderDrawable;
 import com.pinkyudeer.tasket.gui.widget.StyledButtonWidget;
 import com.pinkyudeer.tasket.gui.widget.StyledMultilineTextField;
@@ -212,15 +213,8 @@ public final class GuiStyle {
         return false;
     }
 
-    private static final class InsetDrawable implements IDrawable {
-
-        private final IDrawable delegate;
-        private final int inset;
-
-        private InsetDrawable(IDrawable delegate, int inset) {
-            this.delegate = delegate;
-            this.inset = inset;
-        }
+    @Desugar
+    private record InsetDrawable(IDrawable delegate, int inset) implements IDrawable {
 
         @Override
         public void draw(GuiContext context, int x, int y, int width, int height, WidgetTheme widgetTheme) {

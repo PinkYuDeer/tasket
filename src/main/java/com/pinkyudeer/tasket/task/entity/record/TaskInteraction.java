@@ -68,6 +68,8 @@ public class TaskInteraction extends BaseRecord {
     @Column(name = "metadata")
     private String metadata; // 附加数据（如点赞位置、@信息等）
 
+    public TaskInteraction() {}
+
     public TaskInteraction(@Nonnull InteractionType type, @Nonnull UUID taskId, @Nonnull UUID playerId,
         @Nonnull UUID operatorId) {
         super(operatorId);

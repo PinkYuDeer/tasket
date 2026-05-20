@@ -16,8 +16,7 @@ import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.widgets.ListWidget;
-import com.cleanroommc.modularui.widgets.layout.Column;
-import com.cleanroommc.modularui.widgets.layout.Row;
+import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.pinkyudeer.tasket.Tasket;
 import com.pinkyudeer.tasket.client.TaskClientActions;
 import com.pinkyudeer.tasket.client.TaskClientStore;
@@ -45,7 +44,7 @@ public class TaskFormPanel extends ModularPanel {
     private final String parentTaskId;
     private final Set<String> selectedTagIds = new HashSet<>();
 
-    private Column form;
+    private Flow form;
     private int step;
     private Task.Importance selectedImportance = Task.Importance.MEDIUM;
     private Task.Urgency selectedUrgency = Task.Urgency.MEDIUM;
@@ -53,10 +52,10 @@ public class TaskFormPanel extends ModularPanel {
     private final Set<UUID> selectedAssigneeIds = new HashSet<>();
     private long lastTagRevision = -1;
 
-    private Row importanceRow;
-    private Row urgencyRow;
-    private Row visibilityRow;
-    private Row assigneeRow;
+    private Flow importanceRow;
+    private Flow urgencyRow;
+    private Flow visibilityRow;
+    private Flow assigneeRow;
     private ListWidget<IWidget, ?> tagSummaryList;
     private ListWidget<IWidget, ?> selectedTagList;
     private ListWidget<IWidget, ?> availableTagList;
@@ -85,7 +84,7 @@ public class TaskFormPanel extends ModularPanel {
         descField = GuiStyle.multilineField();
         descField.hintText("Enter description... (Enter for new line)");
 
-        form = new Column();
+        form = Flow.column();
         form.widthRel(1f)
             .heightRel(1f)
             .padding(12)
@@ -162,8 +161,8 @@ public class TaskFormPanel extends ModularPanel {
             .name("form/header_title");
     }
 
-    private Row buildTagsRow() {
-        Row row = new Row();
+    private Flow buildTagsRow() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(20)
             .marginTop(6)
@@ -193,8 +192,8 @@ public class TaskFormPanel extends ModularPanel {
         return row;
     }
 
-    private Row buildVisibilityRow() {
-        Row row = new Row();
+    private Flow buildVisibilityRow() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(24)
             .marginTop(10)
@@ -211,7 +210,7 @@ public class TaskFormPanel extends ModularPanel {
         return row;
     }
 
-    private void addVisibilityButton(Row row, Task.PrivacyLevel visibility) {
+    private void addVisibilityButton(Flow row, Task.PrivacyLevel visibility) {
         boolean active = selectedVisibility == visibility;
         row.child(
             toggleButton(
@@ -228,8 +227,8 @@ public class TaskFormPanel extends ModularPanel {
                     }));
     }
 
-    private Row buildAssigneeRow() {
-        Row row = new Row();
+    private Flow buildAssigneeRow() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(24)
             .marginTop(5)
@@ -259,8 +258,8 @@ public class TaskFormPanel extends ModularPanel {
         return row;
     }
 
-    private Row buildImportanceRow() {
-        Row row = new Row();
+    private Flow buildImportanceRow() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(24)
             .marginTop(5)
@@ -297,8 +296,8 @@ public class TaskFormPanel extends ModularPanel {
         return row;
     }
 
-    private Row buildUrgencyRow() {
-        Row row = new Row();
+    private Flow buildUrgencyRow() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(24)
             .marginTop(3)
@@ -338,7 +337,7 @@ public class TaskFormPanel extends ModularPanel {
         return GuiStyle.button(label, bg, GuiStyle.TOGGLE_HOVER, GuiStyle.BUTTON_PRESSED, textColor, 0.78f);
     }
 
-    private void rebuildRow(Row oldRow, Row newRow) {
+    private void rebuildRow(Flow oldRow, Flow newRow) {
         int idx = form.getChildren()
             .indexOf(oldRow);
         if (idx < 0) return;
@@ -364,12 +363,12 @@ public class TaskFormPanel extends ModularPanel {
         panel.background(IDrawable.EMPTY);
         panel.overlay(ShaderDrawable.panel(6f, PICKER_BG, GuiStyle.ACCENT));
 
-        Column root = new Column();
+        Flow root = Flow.column();
         root.widthRel(1f)
             .heightRel(1f)
             .padding(6)
             .name("form/tag_picker/root");
-        Row header = new Row();
+        Flow header = Flow.row();
         header.widthRel(1f)
             .height(16);
         header.child(
@@ -389,7 +388,7 @@ public class TaskFormPanel extends ModularPanel {
                 }));
         root.child(header);
 
-        Row lists = new Row();
+        Flow lists = Flow.row();
         lists.widthRel(1f)
             .height(112)
             .marginTop(3);
@@ -411,8 +410,8 @@ public class TaskFormPanel extends ModularPanel {
         return panel;
     }
 
-    private Row buildTagPickerActions(ModularPanel panel) {
-        Row row = new Row();
+    private Flow buildTagPickerActions(ModularPanel panel) {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(20)
             .marginTop(5)
@@ -498,7 +497,7 @@ public class TaskFormPanel extends ModularPanel {
         panel.background(IDrawable.EMPTY);
         panel.overlay(ShaderDrawable.panel(6f, PICKER_BG, GuiStyle.ACCENT));
 
-        Column root = new Column();
+        Flow root = Flow.column();
         root.widthRel(1f)
             .heightRel(1f)
             .padding(6);
@@ -620,7 +619,7 @@ public class TaskFormPanel extends ModularPanel {
                     .widthRel(1f)
                     .height(14));
         } else {
-            Row row = new Row();
+            Flow row = Flow.row();
             row.widthRel(1f)
                 .height(GuiStyle.TAG_CHIP_HEIGHT);
             int visible = Math.min(2, tags.size());
@@ -655,8 +654,8 @@ public class TaskFormPanel extends ModularPanel {
             .height(14);
     }
 
-    private Row buildStepOneActions() {
-        Row actions = new Row();
+    private Flow buildStepOneActions() {
+        Flow actions = Flow.row();
         actions.widthRel(1f)
             .height(24)
             .marginTop(8)
@@ -683,8 +682,8 @@ public class TaskFormPanel extends ModularPanel {
         return actions;
     }
 
-    private Row buildStepTwoActions() {
-        Row actions = new Row();
+    private Flow buildStepTwoActions() {
+        Flow actions = Flow.row();
         actions.widthRel(1f)
             .height(24)
             .marginTop(12)

@@ -4,8 +4,7 @@ import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
-import com.cleanroommc.modularui.widgets.layout.Column;
-import com.cleanroommc.modularui.widgets.layout.Row;
+import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.pinkyudeer.tasket.Tasket;
 import com.pinkyudeer.tasket.client.TeamClientActions;
 import com.pinkyudeer.tasket.gui.GuiStyle;
@@ -23,7 +22,7 @@ public class TeamFormPanel extends ModularPanel {
     private final StyledTextField descField;
     private final Runnable onSaved;
     private String selectedSource = "LOCAL";
-    private Row sourceRow;
+    private Flow sourceRow;
 
     public TeamFormPanel(Runnable onSaved) {
         super("tasket_team_form");
@@ -49,8 +48,8 @@ public class TeamFormPanel extends ModularPanel {
         return GuiStyle.shouldKeepTypingFocus(this, keyCode);
     }
 
-    private Column buildForm() {
-        Column form = new Column();
+    private Flow buildForm() {
+        Flow form = Flow.column();
         form.widthRel(1f)
             .heightRel(1f)
             .padding(12)
@@ -80,8 +79,8 @@ public class TeamFormPanel extends ModularPanel {
         return form;
     }
 
-    private Row buildSourceRow() {
-        Row row = new Row();
+    private Flow buildSourceRow() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(20)
             .marginTop(8)
@@ -121,7 +120,7 @@ public class TeamFormPanel extends ModularPanel {
 
     private void rebuildSourceRow() {
         if (sourceRow == null || getChildren().isEmpty()) return;
-        Column form = (Column) getChildren().get(0);
+        Flow form = (Flow) getChildren().get(0);
         int idx = form.getChildren()
             .indexOf(sourceRow);
         if (idx < 0) return;
@@ -131,8 +130,8 @@ public class TeamFormPanel extends ModularPanel {
         form.scheduleResize();
     }
 
-    private Row buildActions() {
-        Row row = new Row();
+    private Flow buildActions() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(24)
             .marginTop(12)

@@ -11,8 +11,7 @@ import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.value.IntValue;
 import com.cleanroommc.modularui.widgets.SliderWidget;
-import com.cleanroommc.modularui.widgets.layout.Column;
-import com.cleanroommc.modularui.widgets.layout.Row;
+import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.pinkyudeer.tasket.Tasket;
 import com.pinkyudeer.tasket.client.TagClientActions;
 import com.pinkyudeer.tasket.client.TaskClientStore;
@@ -42,8 +41,8 @@ public class TagFormPanel extends ModularPanel {
     private final String editingTeamName;
 
     private Tag.TagScope selectedScope = Tag.TagScope.PUBLIC;
-    private Row scopeRow;
-    private Row teamRow;
+    private Flow scopeRow;
+    private Flow teamRow;
     private StyledButtonWidget previewButton;
     private SliderWidget redSlider;
     private SliderWidget greenSlider;
@@ -134,8 +133,8 @@ public class TagFormPanel extends ModularPanel {
         updatePreview();
     }
 
-    private Column buildForm() {
-        Column form = new Column();
+    private Flow buildForm() {
+        Flow form = Flow.column();
         form.widthRel(1f)
             .heightRel(1f)
             .padding(12)
@@ -166,14 +165,14 @@ public class TagFormPanel extends ModularPanel {
         return form;
     }
 
-    private Row buildColorEditor() {
-        Row row = new Row();
+    private Flow buildColorEditor() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(62)
             .marginTop(7)
             .name("tag_form/color_editor");
 
-        Column preview = new Column();
+        Flow preview = Flow.column();
         preview.widthRel(0.32f)
             .heightRel(1f)
             .paddingRight(6);
@@ -191,7 +190,7 @@ public class TagFormPanel extends ModularPanel {
         lastPreviewColor = currentColor();
         row.child(preview);
 
-        Column controls = new Column();
+        Flow controls = Flow.column();
         controls.widthRel(0.64f)
             .heightRel(1f)
             .marginLeft(8)
@@ -203,8 +202,8 @@ public class TagFormPanel extends ModularPanel {
         return row;
     }
 
-    private Row buildColorRow(String label, IntValue value, StyledTextField field, int color) {
-        Row row = new Row();
+    private Flow buildColorRow(String label, IntValue value, StyledTextField field, int color) {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(18)
             .marginTop(1)
@@ -238,8 +237,8 @@ public class TagFormPanel extends ModularPanel {
         return row;
     }
 
-    private Row buildScopeRow() {
-        Row row = new Row();
+    private Flow buildScopeRow() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(18)
             .marginTop(7)
@@ -258,7 +257,7 @@ public class TagFormPanel extends ModularPanel {
         return row;
     }
 
-    private void addScope(Row row, Tag.TagScope scope) {
+    private void addScope(Flow row, Tag.TagScope scope) {
         boolean active = selectedScope == scope;
         row.child(
             GuiStyle
@@ -279,8 +278,8 @@ public class TagFormPanel extends ModularPanel {
                 }));
     }
 
-    private Row buildTeamRow() {
-        Row row = new Row();
+    private Flow buildTeamRow() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(18)
             .marginTop(4)
@@ -346,13 +345,13 @@ public class TagFormPanel extends ModularPanel {
     }
 
     private void rebuildScopeAndTeam() {
-        Column form = (Column) getChildren().get(0);
+        Flow form = (Flow) getChildren().get(0);
         replaceChild(form, scopeRow, buildScopeRow());
         replaceChild(form, teamRow, buildTeamRow());
         form.scheduleResize();
     }
 
-    private void replaceChild(Column form, IWidget oldChild, Row newChild) {
+    private void replaceChild(Flow form, IWidget oldChild, Flow newChild) {
         int idx = form.getChildren()
             .indexOf(oldChild);
         if (idx >= 0) {
@@ -363,8 +362,8 @@ public class TagFormPanel extends ModularPanel {
         }
     }
 
-    private Row buildActions() {
-        Row row = new Row();
+    private Flow buildActions() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(24)
             .marginTop(8);

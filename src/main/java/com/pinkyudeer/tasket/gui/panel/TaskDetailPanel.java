@@ -18,8 +18,7 @@ import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.value.StringValue;
 import com.cleanroommc.modularui.widgets.ListWidget;
-import com.cleanroommc.modularui.widgets.layout.Column;
-import com.cleanroommc.modularui.widgets.layout.Row;
+import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.pinkyudeer.tasket.Tasket;
 import com.pinkyudeer.tasket.client.TaskClientActions;
 import com.pinkyudeer.tasket.client.TaskClientStore;
@@ -144,8 +143,8 @@ public class TaskDetailPanel extends ModularPanel {
         }
     }
 
-    private Column buildContent() {
-        Column root = new Column();
+    private Flow buildContent() {
+        Flow root = Flow.column();
         root.widthRel(1f)
             .heightRel(1f)
             .padding(8)
@@ -165,8 +164,8 @@ public class TaskDetailPanel extends ModularPanel {
         return root;
     }
 
-    private Row buildHeader() {
-        Row header = new Row();
+    private Flow buildHeader() {
+        Flow header = Flow.row();
         header.widthRel(1f)
             .height(18)
             .name("detail/header");
@@ -190,13 +189,13 @@ public class TaskDetailPanel extends ModularPanel {
         return header;
     }
 
-    private Column buildScrollableContent() {
-        Column content = new Column();
+    private Flow buildScrollableContent() {
+        Flow content = Flow.column();
         content.widthRel(1f)
             .coverChildrenHeight()
             .name("detail/content");
 
-        Row body = new Row();
+        Flow body = Flow.row();
         body.widthRel(1f)
             .height(170)
             .name("detail/body");
@@ -207,8 +206,8 @@ public class TaskDetailPanel extends ModularPanel {
         return content;
     }
 
-    private Column buildLeftPane() {
-        Column left = new Column();
+    private Flow buildLeftPane() {
+        Flow left = Flow.column();
         left.widthRel(0.68f)
             .heightRel(1f)
             .paddingRight(6)
@@ -231,8 +230,8 @@ public class TaskDetailPanel extends ModularPanel {
         return left;
     }
 
-    private Row buildTagSummaryRow() {
-        Row row = new Row();
+    private Flow buildTagSummaryRow() {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(18)
             .marginTop(3)
@@ -442,7 +441,7 @@ public class TaskDetailPanel extends ModularPanel {
         picker.background(IDrawable.EMPTY);
         picker.overlay(ShaderDrawable.panel(6f, 0x1E1E38F0, GuiStyle.ACCENT));
 
-        Column col = new Column();
+        Flow col = Flow.column();
         col.widthRel(1f)
             .heightRel(1f)
             .padding(6)
@@ -503,7 +502,7 @@ public class TaskDetailPanel extends ModularPanel {
         picker.background(IDrawable.EMPTY);
         picker.overlay(ShaderDrawable.panel(6f, 0x1E1E38F0, GuiStyle.ACCENT));
 
-        Column col = new Column();
+        Flow col = Flow.column();
         col.widthRel(1f)
             .heightRel(1f)
             .padding(6)
@@ -717,7 +716,7 @@ public class TaskDetailPanel extends ModularPanel {
         panel.overlay(ShaderDrawable.panel(6f, 0x1E1E38F0, GuiStyle.ACCENT));
         resetDraftTags();
 
-        Column root = new Column();
+        Flow root = Flow.column();
         root.widthRel(1f)
             .heightRel(1f)
             .padding(6)
@@ -730,7 +729,7 @@ public class TaskDetailPanel extends ModularPanel {
                 .widthRel(1f)
                 .height(12));
 
-        Row lists = new Row();
+        Flow lists = Flow.row();
         lists.widthRel(1f)
             .height(108)
             .marginTop(3)
@@ -757,8 +756,8 @@ public class TaskDetailPanel extends ModularPanel {
         return panel;
     }
 
-    private Row buildTagCreateRow(ModularPanel parent) {
-        Row row = new Row();
+    private Flow buildTagCreateRow(ModularPanel parent) {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(18)
             .marginTop(5)
@@ -780,8 +779,8 @@ public class TaskDetailPanel extends ModularPanel {
         return row;
     }
 
-    private Row buildTagActions(ModularPanel panel) {
-        Row row = new Row();
+    private Flow buildTagActions(ModularPanel panel) {
+        Flow row = Flow.row();
         row.widthRel(1f)
             .height(20)
             .marginTop(5)
@@ -819,7 +818,7 @@ public class TaskDetailPanel extends ModularPanel {
                     .widthRel(1f)
                     .height(14));
         } else {
-            Row row = new Row();
+            Flow row = Flow.row();
             row.widthRel(1f)
                 .height(GuiStyle.TAG_CHIP_HEIGHT);
             int visible = Math.min(2, current.size());
@@ -972,14 +971,14 @@ public class TaskDetailPanel extends ModularPanel {
         return cleaned.length() > 16 ? cleaned.substring(0, 16) : cleaned;
     }
 
-    private Column buildSubtaskSection() {
-        Column section = new Column();
+    private Flow buildSubtaskSection() {
+        Flow section = Flow.column();
         section.widthRel(1f)
             .height(112)
             .marginTop(5)
             .name("detail/subtask_section");
 
-        Row header = new Row();
+        Flow header = Flow.row();
         header.widthRel(1f)
             .height(14)
             .name("detail/subtask/header");
@@ -1093,8 +1092,8 @@ public class TaskDetailPanel extends ModularPanel {
         subtaskDetailHandler.openPanel();
     }
 
-    private Row buildActions() {
-        Row actions = new Row();
+    private Flow buildActions() {
+        Flow actions = Flow.row();
         actions.widthRel(1f)
             .height(17)
             .marginTop(4)

@@ -10,6 +10,9 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.sql.rowset.CachedRowSet;
+import javax.sql.rowset.RowSetProvider;
+
 import org.sqlite.SQLiteConnection;
 
 import com.pinkyudeer.tasket.Tasket;
@@ -142,19 +145,26 @@ public class SQLiteManager {
      *
      * @param sql    SQL 语句
      * @param params SQL 参数列表
-     * @return 执行结果, 若为查询则返回 ResultSet, 否则返回影响的行数
+     * @return 执行结果, 若为查询则返回已脱离连接的 ResultSet, 否则返回影响的行数
+     * @deprecated 新代码请使用 {@link #query(String, ResultSetHandler, Object...)} 或
+     *             {@link #executeUpdate(String, Object...)}，以确保资源生命周期清晰。
      */
+    @Deprecated
     @SuppressWarnings("SqlSourceToSinkFlow")
     public static Object executeSafeSQL(String sql, Object... params) {
-        try {
-            PreparedStatement ps = inMemoryConnection.prepareStatement(sql);
+        try (PreparedStatement ps = inMemoryConnection.prepareStatement(sql)) {
             if (params.length > 0) {
                 setParameters(ps, Arrays.asList(params));
             }
             Tasket.LOG.info("执行 SQL: {}", ps.toString()); // TODO:正式发布前删除
             boolean resultIsRs = ps.execute();
             if (resultIsRs) {
-                return ps.getResultSet();
+                try (ResultSet rs = ps.getResultSet()) {
+                    CachedRowSet rowSet = RowSetProvider.newFactory()
+                        .createCachedRowSet();
+                    rowSet.populate(rs);
+                    return rowSet;
+                }
             }
             Tasket.LOG.info("影响行数: {}", ps.getUpdateCount()); // TODO:正式发布前删除
             return ps.getUpdateCount();
@@ -164,7 +174,8 @@ public class SQLiteManager {
         return null;
     }
 
-    public static Integer executeUpdate(String sql, Object... params) {
+    @SuppressWarnings("SqlSourceToSinkFlow")
+    public static int executeUpdate(String sql, Object... params) {
         try (PreparedStatement ps = inMemoryConnection.prepareStatement(sql)) {
             if (params.length > 0) {
                 setParameters(ps, Arrays.asList(params));
@@ -175,10 +186,11 @@ public class SQLiteManager {
             return count;
         } catch (SQLException e) {
             Tasket.LOG.error("执行 SQL 更新失败: {}", sql, e);
-            return null;
+            return 0;
         }
     }
 
+    @SuppressWarnings("SqlSourceToSinkFlow")
     public static <T> T query(String sql, ResultSetHandler<T> handler, Object... params) {
         try (PreparedStatement ps = inMemoryConnection.prepareStatement(sql)) {
             if (params.length > 0) {

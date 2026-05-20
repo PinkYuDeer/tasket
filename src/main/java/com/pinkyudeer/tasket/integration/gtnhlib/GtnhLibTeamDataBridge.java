@@ -66,20 +66,21 @@ public final class GtnhLibTeamDataBridge {
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) {
             String name = method.getName();
-            if ("toString".equals(name)) return "TasketTeamDataBridge";
-            if ("hashCode".equals(name)) return System.identityHashCode(proxy);
-            if ("equals".equals(name)) return proxy == args[0];
-            if ("writeToNBT".equals(name)) {
-                writeMarker(args);
-                return null;
-            }
-            if ("readFromNBT".equals(name) || "mergeData".equals(name) || "markDirty".equals(name)) return null;
-            return null;
+            return switch (name) {
+                case "toString" -> "TasketTeamDataBridge";
+                case "hashCode" -> System.identityHashCode(proxy);
+                case "equals" -> proxy == args[0];
+                case "writeToNBT" -> {
+                    writeMarker(args);
+                    yield null;
+                }
+                case "readFromNBT", "mergeData", "markDirty" -> null;
+                default -> null;
+            };
         }
 
         private void writeMarker(Object[] args) {
-            if (args == null || args.length == 0 || !(args[0] instanceof NBTTagCompound)) return;
-            NBTTagCompound tag = (NBTTagCompound) args[0];
+            if (args == null || args.length == 0 || !(args[0] instanceof NBTTagCompound tag)) return;
             tag.setString("schema", "external-team-bridge");
         }
     }

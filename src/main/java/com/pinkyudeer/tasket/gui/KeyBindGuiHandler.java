@@ -30,13 +30,18 @@ public class KeyBindGuiHandler {
     @SubscribeEvent
     public void onClientTick(ClientTickEvent event) {
         if (openTaskGui.isPressed()) {
-            TaskScreen screen = new TaskScreen();
-            UISettings settings = new UISettings();
-            settings.useTheme("tasket:main");
-            screen.getContext()
-                .setSettings(settings);
-            Minecraft.getMinecraft()
-                .displayGuiScreen(new TransparentScreenWrapper(screen));
+            openTaskScreen();
         }
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    private void openTaskScreen() {
+        TaskScreen screen = new TaskScreen();
+        UISettings settings = new UISettings();
+        settings.useTheme("tasket:main");
+        screen.getContext()
+            .setSettings(settings);
+        Minecraft.getMinecraft()
+            .displayGuiScreen(new TransparentScreenWrapper(screen));
     }
 }

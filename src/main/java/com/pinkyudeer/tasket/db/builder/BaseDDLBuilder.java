@@ -97,7 +97,7 @@ public abstract class BaseDDLBuilder<T, B extends BaseDDLBuilder<T, B>> {
      */
     public Integer execute() {
         return sqls.stream()
-            .mapToInt(sql -> (Integer) SQLiteManager.executeSafeSQL(sql))
+            .mapToInt(SQLiteManager::executeUpdate)
             .sum();
     }
 

@@ -60,6 +60,8 @@ public class PlayerInteraction extends BaseRecord {
     @Column(name = "metadata")
     private String metadata; // 附加数据（如表情包位置、@位置信息等）
 
+    public PlayerInteraction() {}
+
     public PlayerInteraction(@Nonnull InteractionType type, @Nonnull UUID initiatorId, @Nonnull UUID receiverId,
         @Nonnull UUID operatorId) {
         super(operatorId);

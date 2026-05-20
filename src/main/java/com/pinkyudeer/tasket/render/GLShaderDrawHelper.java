@@ -385,10 +385,8 @@ public class GLShaderDrawHelper {
             ShaderHelper.setUniformRgba(complexRectShader, "u_colorInnerShadow2", config.colorInnerShadow2);
 
             // 使用Tessellator绘制矩形
-            RenderHelper.drawRelativeRect((int) config.renderSize[0], (int) config.renderSize[1], true);
 
             // 禁用着色器
-            ARBShaderObjects.glUseProgramObjectARB(0);
         } else {
             // 启用着色器
             ARBShaderObjects.glUseProgramObjectARB(simpleRectShader);
@@ -415,11 +413,11 @@ public class GLShaderDrawHelper {
             ShaderHelper.setUniformRgba(simpleRectShader, "u_colorBorder", config.colorBorder);
 
             // 使用Tessellator绘制矩形
-            RenderHelper.drawRelativeRect((int) config.renderSize[0], (int) config.renderSize[1], true);
 
             // 禁用着色器
-            ARBShaderObjects.glUseProgramObjectARB(0);
         }
+        RenderHelper.drawRelativeRect((int) config.renderSize[0], (int) config.renderSize[1], true);
+        ARBShaderObjects.glUseProgramObjectARB(0);
 
         // 恢复GL状态
         GL11.glPopMatrix();

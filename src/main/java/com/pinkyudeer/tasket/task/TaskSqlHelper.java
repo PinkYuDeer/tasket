@@ -1,5 +1,6 @@
 package com.pinkyudeer.tasket.task;
 
+import java.sql.ResultSet;
 import java.util.Set;
 
 import net.minecraft.entity.player.EntityPlayer;
@@ -93,7 +94,7 @@ public class TaskSqlHelper {
     }
 
     private static boolean isMigrationApplied(int id) {
-        Boolean applied = SQLiteManager.query("SELECT 1 FROM schema_version WHERE id = ? LIMIT 1", rs -> rs.next(), id);
+        Boolean applied = SQLiteManager.query("SELECT 1 FROM schema_version WHERE id = ? LIMIT 1", ResultSet::next, id);
         return Boolean.TRUE.equals(applied);
     }
 
