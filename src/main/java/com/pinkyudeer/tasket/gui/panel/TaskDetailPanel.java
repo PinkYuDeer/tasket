@@ -11,6 +11,8 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 
+import org.lwjgl.input.Keyboard;
+
 import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.api.drawable.IKey;
@@ -127,6 +129,10 @@ public class TaskDetailPanel extends ModularPanel {
     public boolean onKeyPressed(char character, int keyCode) {
         boolean handled = super.onKeyPressed(character, keyCode);
         if (handled) return true;
+        if (keyCode == Keyboard.KEY_ESCAPE) {
+            closeIfOpen();
+            return true;
+        }
         return GuiStyle.shouldKeepTypingFocus(this, keyCode);
     }
 

@@ -1,5 +1,7 @@
 package com.pinkyudeer.tasket.gui.panel;
 
+import org.lwjgl.input.Keyboard;
+
 import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
@@ -45,6 +47,10 @@ public class TeamFormPanel extends ModularPanel {
     public boolean onKeyPressed(char character, int keyCode) {
         boolean handled = super.onKeyPressed(character, keyCode);
         if (handled) return true;
+        if (keyCode == Keyboard.KEY_ESCAPE) {
+            closeIfOpen();
+            return true;
+        }
         return GuiStyle.shouldKeepTypingFocus(this, keyCode);
     }
 

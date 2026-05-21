@@ -4,6 +4,8 @@ import java.util.List;
 
 import net.minecraft.nbt.NBTTagCompound;
 
+import org.lwjgl.input.Keyboard;
+
 import com.cleanroommc.modularui.api.GuiAxis;
 import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.api.drawable.IKey;
@@ -124,6 +126,10 @@ public class TagFormPanel extends ModularPanel {
     public boolean onKeyPressed(char character, int keyCode) {
         boolean handled = super.onKeyPressed(character, keyCode);
         if (handled) return true;
+        if (keyCode == Keyboard.KEY_ESCAPE) {
+            closeIfOpen();
+            return true;
+        }
         return GuiStyle.shouldKeepTypingFocus(this, keyCode);
     }
 
