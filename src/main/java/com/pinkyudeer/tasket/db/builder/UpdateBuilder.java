@@ -1,10 +1,13 @@
 package com.pinkyudeer.tasket.db.builder;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.pinkyudeer.tasket.db.EntityEventRecorder;
 import com.pinkyudeer.tasket.db.SQLiteManager;
+import com.pinkyudeer.tasket.db.annotation.Column;
 
 /**
  * 更新操作构建器。
@@ -84,6 +87,27 @@ public class UpdateBuilder<T> extends BaseBuilder<T, UpdateBuilder<T>> {
             }
         }
 
+        VersionState versionState = prepareVersion(columnValues, null);
+        Integer count = executeUpdate(columnValues, versionState);
+        if (count != null && count == 0 && versionState != null) {
+            Integer latestVersion = readLatestVersion();
+            if (latestVersion != null && !latestVersion.equals(versionState.expectedVersion)) {
+                versionState = prepareVersion(columnValues, latestVersion);
+                count = executeUpdate(columnValues, versionState);
+            }
+        }
+        if (count != null && count > 0 && versionState != null) {
+            EntityEventRecorder.recordUpdate(
+                getTableName(),
+                entity,
+                versionState.expectedVersion,
+                versionState.newVersion,
+                columnValues.keySet());
+        }
+        return count;
+    }
+
+    private Integer executeUpdate(Map<String, Object> columnValues, VersionState versionState) {
         StringBuilder setClause = new StringBuilder();
         List<Object> executeParams = new ArrayList<>();
         boolean first = true;
@@ -99,7 +123,81 @@ public class UpdateBuilder<T> extends BaseBuilder<T, UpdateBuilder<T>> {
         String sql = String.format("UPDATE %s SET %s", getTableName(), setClause);
 
         sql = addWhereClause(sql, executeParams, true, "更新");
+        if (versionState != null) {
+            sql += " AND version = ?";
+            executeParams.add(versionState.expectedVersion);
+        }
 
         return SQLiteManager.executeUpdate(sql, executeParams.toArray());
+    }
+
+    private VersionState prepareVersion(Map<String, Object> columnValues, Integer expectedVersionOverride) {
+        Field versionField = getVersionField();
+        if (versionField == null || entity == null) return null;
+
+        Integer expectedVersion = expectedVersionOverride != null ? expectedVersionOverride
+            : readVersion(oldEntity == null ? entity : oldEntity, versionField);
+        if (expectedVersion == null) expectedVersion = 0;
+
+        int nextVersion = expectedVersion + 1;
+        writeVersion(entity, versionField, nextVersion);
+        columnValues.put("version", nextVersion);
+        return new VersionState(expectedVersion, nextVersion);
+    }
+
+    private Field getVersionField() {
+        for (Field field : getColumnFields(entityClass)) {
+            Column column = field.getAnnotation(Column.class);
+            if (column != null && "version".equals(column.name())) return field;
+        }
+        return null;
+    }
+
+    private Integer readVersion(Object target, Field versionField) {
+        if (target == null) return null;
+        try {
+            versionField.setAccessible(true);
+            Object value = versionField.get(target);
+            if (value instanceof Number number) return number.intValue();
+            return value == null ? null : Integer.parseInt(value.toString());
+        } catch (IllegalAccessException | NumberFormatException e) {
+            throw new RuntimeException("无法读取 version 字段", e);
+        }
+    }
+
+    private void writeVersion(Object target, Field versionField, int version) {
+        try {
+            versionField.setAccessible(true);
+            versionField.set(target, version);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException("无法写入 version 字段", e);
+        }
+    }
+
+    private Integer readLatestVersion() {
+        try {
+            Field primaryKeyField = getPrimaryKeyField();
+            primaryKeyField.setAccessible(true);
+            Object primaryKey = primaryKeyField.get(entity);
+            if (primaryKey == null) return null;
+            String primaryKeyColumn = getColumnName(primaryKeyField);
+            return SQLiteManager.query(
+                "SELECT version FROM " + getTableName() + " WHERE " + primaryKeyColumn + " = ? LIMIT 1",
+                rs -> rs.next() ? rs.getInt("version") : null,
+                primaryKey);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException("无法读取主键字段", e);
+        }
+    }
+
+    private static class VersionState {
+
+        private final Integer expectedVersion;
+        private final Integer newVersion;
+
+        private VersionState(Integer expectedVersion, Integer newVersion) {
+            this.expectedVersion = expectedVersion;
+            this.newVersion = newVersion;
+        }
     }
 }

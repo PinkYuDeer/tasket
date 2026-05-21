@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 
+import com.pinkyudeer.tasket.db.EntityEventRecorder;
 import com.pinkyudeer.tasket.db.SQLiteManager;
 
 /**
@@ -50,6 +51,10 @@ public class InsertBuilder<T> extends BaseBuilder<T, InsertBuilder<T>> {
         }
 
         String sql = String.format("INSERT INTO %s %s VALUES %s", getTableName(), columns, placeholders);
-        return SQLiteManager.executeUpdate(sql, params.toArray());
+        Integer count = SQLiteManager.executeUpdate(sql, params.toArray());
+        if (count != null && count > 0) {
+            EntityEventRecorder.recordInsert(getTableName(), entity, values);
+        }
+        return count;
     }
 }

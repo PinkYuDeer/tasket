@@ -23,6 +23,9 @@ public class Tag {
     @Column(name = "id", isPrimaryKey = true)
     private UUID id = UUID.randomUUID(); // 标签唯一标识符
     @Nonnull
+    @Column(name = "version", defaultValue = "1")
+    private Integer version = 1; // 修订次数
+    @Nonnull
     @Column(name = "name", isUnique = true, index = { "idx_tags_name" })
     private String name; // 标签名称
     @Nullable

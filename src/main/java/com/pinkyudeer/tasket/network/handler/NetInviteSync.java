@@ -14,6 +14,7 @@ public final class NetInviteSync {
     private NetInviteSync() {}
 
     public static void registerHandler() {
+        PacketTypeRegistry.INSTANCE.registerServerHandler(PacketIds.INVITE_SYNC, NetInviteSync::onServer);
         PacketTypeRegistry.INSTANCE.registerClientHandler(PacketIds.INVITE_SYNC, NetInviteSync::onClient);
     }
 
@@ -21,6 +22,10 @@ public final class NetInviteSync {
         NBTTagCompound payload = new NBTTagCompound();
         payload.setTag("data", new NBTTagList());
         PacketSender.INSTANCE.sendToPlayers(PacketIds.INVITE_SYNC, payload, player);
+    }
+
+    private static void onServer(NBTTagCompound payload, EntityPlayerMP sender) {
+        if (sender != null) sendSync(sender);
     }
 
     private static void onClient(NBTTagCompound payload) {

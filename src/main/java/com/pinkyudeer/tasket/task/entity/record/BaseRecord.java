@@ -20,6 +20,9 @@ public abstract class BaseRecord {
     @Column(name = "id", isPrimaryKey = true)
     private UUID id;
     @Nonnull
+    @Column(name = "version", defaultValue = "1")
+    private Integer version = 1; // 修订次数
+    @Nonnull
     @Column(name = "create_time", defaultValue = "CURRENT_TIMESTAMP")
     private LocalDateTime createTime;
     @Nonnull

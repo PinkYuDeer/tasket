@@ -7,13 +7,15 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 
 import javax.sql.rowset.CachedRowSet;
 import javax.sql.rowset.RowSetProvider;
-
-import org.sqlite.SQLiteConnection;
 
 import com.pinkyudeer.tasket.Tasket;
 import com.pinkyudeer.tasket.helper.ModFileHelper;
@@ -22,12 +24,15 @@ import com.pinkyudeer.tasket.task.TaskSqlHelper;
 /**
  * SQLite 数据库管理类。
  * 负责连接、执行 SQL 和关闭数据库。
- * 该类使用内存数据库作为缓存，并在需要时将数据持久化到文件。
+ * 默认直接使用世界目录中的文件数据库，并通过 ThreadLocal 连接支持多线程读取。
  */
 public class SQLiteManager {
 
-    private static final String MEM_DB_URL = "jdbc:sqlite::memory:"; // 内存数据库 URL
-    private static Connection inMemoryConnection;
+    private static final String JDBC_SQLITE_PREFIX = "jdbc:sqlite:";
+    private static final ThreadLocal<Connection> THREAD_CONNECTION = new ThreadLocal<>();
+    private static final Set<Connection> OPEN_CONNECTIONS = Collections
+        .synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<>()));
+    private static volatile String databaseUrl;
     public static boolean isWorldLoaded = false;
 
     @FunctionalInterface
@@ -43,29 +48,32 @@ public class SQLiteManager {
     }
 
     /**
-     * 初始化内存数据库。
-     * 若文件数据库存在则加载数据，否则创建新数据库。
-     *
+     * 初始化世界文件数据库。
      */
     public static void initSqlite() {
+        closeConnections();
+        File databaseFile = getDatabaseFile();
+        boolean databaseExists = databaseFile.exists();
         try {
-            inMemoryConnection = DriverManager.getConnection(MEM_DB_URL);
-        } catch (SQLException e) {
+            ModFileHelper.ensureWorldDirExist();
+            databaseUrl = JDBC_SQLITE_PREFIX + databaseFile.getAbsolutePath()
+                .replace(File.separatorChar, '/');
+            THREAD_CONNECTION.set(openConnection(databaseUrl, false));
+        } catch (IOException | SQLException e) {
             Tasket.LOG.error("SQLite 初始化失败", e);
             return;
         }
         isWorldLoaded = true;
-        if (!getDatabaseFile().exists()) {
+        if (!databaseExists) {
             initNewDataBase();
         } else {
-            loadDataFromFileToMemory();
             TaskSqlHelper.migrateSchema();
         }
         Tasket.LOG.info("SQLite 初始化完成");
     }
 
     /**
-     * 初始化新数据库并保存到文件。
+     * 初始化新数据库。
      * 创建必要的表结构并初始化基础数据。
      */
     private static void initNewDataBase() {
@@ -73,70 +81,37 @@ public class SQLiteManager {
 
         // 在这里添加初始化 SQL 语句
         TaskSqlHelper.initTaskDataBase();
-
-        saveDataFromMemoryToFile();
     }
 
     /**
-     * 从文件加载数据到内存数据库。
-     * 将持久化存储的数据恢复到内存中。
-     *
-     * @throws RuntimeException 当数据加载失败时抛出
+     * WAL 检查点。文件数据库是主存储，不再执行内存库备份。
      */
-    private static void loadDataFromFileToMemory() {
-        Tasket.LOG.info("加载文件数据到内存");
-        try {
-            @SuppressWarnings("resource")
-            SQLiteConnection mem = unwrapConnection();
-            int result = mem.getDatabase()
-                .restore("main", getDatabaseFile().getAbsolutePath(), (remaining, pageCount) -> {
-                    int progress = (int) ((1 - (double) remaining / pageCount) * 100);
-                    Tasket.LOG.info("恢复进度: {}%, 剩余: {}/{}", progress, remaining, pageCount);
-                });
-            Tasket.LOG.info("恢复结果: {}", result);
-        } catch (SQLException e) {
-            throw new RuntimeException("加载数据失败", e);
-        }
-    }
-
-    /**
-     * 将内存数据库保存到文件。
-     * 将当前内存中的数据持久化到磁盘。
-     *
-     * @throws RuntimeException 当数据保存失败时抛出
-     */
-    public static void saveDataFromMemoryToFile() {
+    public static void checkpoint() {
         if (!isWorldLoaded) return;
-        Tasket.LOG.info("保存内存数据到文件");
-        try {
-            @SuppressWarnings("resource")
-            SQLiteConnection mem = unwrapConnection();
-            ModFileHelper.ensureWorldDirExist();
-            int result = mem.getDatabase()
-                .backup("main", getDatabaseFile().getAbsolutePath(), (remaining, pageCount) -> {
-                    int progress = (int) ((1 - (double) remaining / pageCount) * 100);
-                    Tasket.LOG.info("备份进度: {}%, 剩余: {}/{}", progress, remaining, pageCount);
-                });
-            Tasket.LOG.info("备份结果: {}", result);
-        } catch (SQLException | IOException e) {
-            throw new RuntimeException("保存数据失败", e);
+        try (Statement statement = getConnection().createStatement()) {
+            statement.execute("PRAGMA wal_checkpoint(TRUNCATE)");
+            Tasket.LOG.debug("SQLite WAL checkpoint completed");
+        } catch (SQLException e) {
+            Tasket.LOG.error("SQLite WAL checkpoint 失败", e);
         }
+    }
+
+    /**
+     * @deprecated 文件数据库已是主存储。保留该方法作为旧调用点的 WAL checkpoint 兼容层。
+     */
+    @Deprecated
+    public static void saveDataFromMemoryToFile() {
+        checkpoint();
     }
 
     /**
      * 关闭数据库连接。
-     * 在关闭前会保存当前内存中的数据到文件。
      */
     public static void close() {
-        saveDataFromMemoryToFile();
+        checkpoint();
         Tasket.LOG.info("关闭 SQLite 连接");
-        try {
-            if (inMemoryConnection != null && !inMemoryConnection.isClosed()) {
-                inMemoryConnection.close();
-            }
-        } catch (SQLException e) {
-            Tasket.LOG.error("关闭连接失败", e);
-        }
+        closeConnections();
+        databaseUrl = null;
         isWorldLoaded = false;
     }
 
@@ -152,11 +127,11 @@ public class SQLiteManager {
     @Deprecated
     @SuppressWarnings("SqlSourceToSinkFlow")
     public static Object executeSafeSQL(String sql, Object... params) {
-        try (PreparedStatement ps = inMemoryConnection.prepareStatement(sql)) {
+        try (PreparedStatement ps = getConnection().prepareStatement(sql)) {
             if (params.length > 0) {
                 setParameters(ps, Arrays.asList(params));
             }
-            Tasket.LOG.info("执行 SQL: {}", ps.toString()); // TODO:正式发布前删除
+            Tasket.LOG.debug("执行 SQL: {}", ps.toString());
             boolean resultIsRs = ps.execute();
             if (resultIsRs) {
                 try (ResultSet rs = ps.getResultSet()) {
@@ -166,7 +141,7 @@ public class SQLiteManager {
                     return rowSet;
                 }
             }
-            Tasket.LOG.info("影响行数: {}", ps.getUpdateCount()); // TODO:正式发布前删除
+            Tasket.LOG.debug("影响行数: {}", ps.getUpdateCount());
             return ps.getUpdateCount();
         } catch (SQLException e) {
             Tasket.LOG.error("执行 SQL 失败: {}", sql, e);
@@ -176,13 +151,13 @@ public class SQLiteManager {
 
     @SuppressWarnings("SqlSourceToSinkFlow")
     public static int executeUpdate(String sql, Object... params) {
-        try (PreparedStatement ps = inMemoryConnection.prepareStatement(sql)) {
+        try (PreparedStatement ps = getConnection().prepareStatement(sql)) {
             if (params.length > 0) {
                 setParameters(ps, Arrays.asList(params));
             }
-            Tasket.LOG.info("执行 SQL: {}", ps.toString()); // TODO:正式发布前转 debug
+            Tasket.LOG.debug("执行 SQL: {}", ps.toString());
             int count = ps.executeUpdate();
-            Tasket.LOG.info("影响行数: {}", count); // TODO:正式发布前转 debug
+            Tasket.LOG.debug("影响行数: {}", count);
             return count;
         } catch (SQLException e) {
             Tasket.LOG.error("执行 SQL 更新失败: {}", sql, e);
@@ -192,11 +167,11 @@ public class SQLiteManager {
 
     @SuppressWarnings("SqlSourceToSinkFlow")
     public static <T> T query(String sql, ResultSetHandler<T> handler, Object... params) {
-        try (PreparedStatement ps = inMemoryConnection.prepareStatement(sql)) {
+        try (PreparedStatement ps = getConnection().prepareStatement(sql)) {
             if (params.length > 0) {
                 setParameters(ps, Arrays.asList(params));
             }
-            Tasket.LOG.info("执行 SQL: {}", ps.toString()); // TODO:正式发布前转 debug
+            Tasket.LOG.debug("执行 SQL: {}", ps.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 return handler.handle(rs);
             }
@@ -209,21 +184,22 @@ public class SQLiteManager {
     public static <T> T transaction(TransactionalWork<T> work) {
         if (work == null) throw new IllegalArgumentException("事务内容不能为空");
         try {
-            boolean oldAutoCommit = inMemoryConnection.getAutoCommit();
+            Connection connection = getConnection();
+            boolean oldAutoCommit = connection.getAutoCommit();
             if (!oldAutoCommit) {
                 return work.execute();
             }
 
-            inMemoryConnection.setAutoCommit(false);
+            connection.setAutoCommit(false);
             try {
                 T result = work.execute();
-                inMemoryConnection.commit();
+                connection.commit();
                 return result;
             } catch (Exception e) {
-                inMemoryConnection.rollback();
+                connection.rollback();
                 throw e;
             } finally {
-                inMemoryConnection.setAutoCommit(true);
+                connection.setAutoCommit(true);
             }
         } catch (Exception e) {
             Tasket.LOG.error("SQLite 事务失败", e);
@@ -232,22 +208,76 @@ public class SQLiteManager {
     }
 
     /**
-     * 解包 SQLiteConnection。
-     *
-     * @return SQLiteConnection 实例
-     * @throws RuntimeException 当解包失败时抛出
+     * 测试专用：注入调用方管理的连接。
      */
-    private static SQLiteConnection unwrapConnection() {
-        try {
-            return inMemoryConnection.unwrap(SQLiteConnection.class);
-        } catch (SQLException e) {
-            throw new RuntimeException("解包连接失败", e);
-        }
+    public static void setConnectionForTesting(Connection connection) throws SQLException {
+        closeConnections();
+        databaseUrl = null;
+        configureConnection(connection, true);
+        THREAD_CONNECTION.set(connection);
+        OPEN_CONNECTIONS.add(connection);
     }
 
     private static File getDatabaseFile() {
         return ModFileHelper.getWorldFile("main.db", false)
             .getAbsoluteFile();
+    }
+
+    private static Connection getConnection() throws SQLException {
+        Connection connection = THREAD_CONNECTION.get();
+        if (connection != null && !connection.isClosed()) {
+            return connection;
+        }
+        if (databaseUrl == null) {
+            throw new SQLException("SQLite 尚未初始化");
+        }
+        connection = openConnection(databaseUrl, false);
+        THREAD_CONNECTION.set(connection);
+        return connection;
+    }
+
+    private static Connection openConnection(String url, boolean inMemory) throws SQLException {
+        Connection connection = DriverManager.getConnection(url);
+        try {
+            configureConnection(connection, inMemory);
+            OPEN_CONNECTIONS.add(connection);
+            return connection;
+        } catch (SQLException e) {
+            try {
+                connection.close();
+            } catch (SQLException closeError) {
+                e.addSuppressed(closeError);
+            }
+            throw e;
+        }
+    }
+
+    private static void configureConnection(Connection connection, boolean inMemory) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("PRAGMA busy_timeout = 5000");
+            if (!inMemory) {
+                statement.execute("PRAGMA journal_mode = WAL");
+                statement.execute("PRAGMA synchronous = NORMAL");
+            }
+        }
+    }
+
+    private static void closeConnections() {
+        AsyncSqlExecutor.INSTANCE.shutdown();
+        EntityEventRecorder.resetCache();
+        synchronized (OPEN_CONNECTIONS) {
+            for (Connection connection : OPEN_CONNECTIONS) {
+                try {
+                    if (connection != null && !connection.isClosed()) {
+                        connection.close();
+                    }
+                } catch (SQLException e) {
+                    Tasket.LOG.error("关闭连接失败", e);
+                }
+            }
+            OPEN_CONNECTIONS.clear();
+        }
+        THREAD_CONNECTION.remove();
     }
 
     /**

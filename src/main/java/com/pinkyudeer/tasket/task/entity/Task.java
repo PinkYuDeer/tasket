@@ -33,8 +33,8 @@ public class Task {
     @Column(name = "description")
     private String description; // 任务描述
     @Nonnull
-    @Column(name = "version", defaultValue = "0")
-    private Integer version = 0; // 修订次数
+    @Column(name = "version", defaultValue = "1")
+    private Integer version = 1; // 修订次数
     @Nonnull
     @Column(name = "visibility", defaultValue = "'PRIVATE'")
     private PrivacyLevel visibility = PrivacyLevel.PRIVATE; // 隐私级别（枚举类型）

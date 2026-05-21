@@ -23,6 +23,9 @@ public class Team {
     @Column(name = "id", isPrimaryKey = true)
     private UUID id = UUID.randomUUID(); // 团队ID
     @Nonnull
+    @Column(name = "version", defaultValue = "1")
+    private Integer version = 1; // 修订次数
+    @Nonnull
     @Column(name = "name")
     private String name; // 团队名称
     @Nullable

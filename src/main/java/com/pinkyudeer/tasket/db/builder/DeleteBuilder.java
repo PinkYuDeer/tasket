@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.pinkyudeer.tasket.db.EntityEventRecorder;
 import com.pinkyudeer.tasket.db.SQLiteManager;
 
 /**
@@ -66,6 +67,13 @@ public class DeleteBuilder<T> extends BaseBuilder<T, DeleteBuilder<T>> {
 
         sql = addWhereClause(sql, executeParams, true, "删除");
 
-        return SQLiteManager.executeUpdate(sql, executeParams.toArray());
+        String where = sql.substring(sql.indexOf(" WHERE ") + " WHERE ".length());
+        List<EntityEventRecorder.DeletedEntity> deletedEntities = EntityEventRecorder
+            .readDeletedEntities(getTableName(), where, executeParams);
+        Integer count = SQLiteManager.executeUpdate(sql, executeParams.toArray());
+        if (count != null && count > 0) {
+            EntityEventRecorder.recordDeletes(getTableName(), deletedEntities);
+        }
+        return count;
     }
 }

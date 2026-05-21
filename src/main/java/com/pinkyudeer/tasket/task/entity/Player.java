@@ -25,6 +25,9 @@ public class Player {
     @Column(name = "id", isPrimaryKey = true)
     private UUID id;
     @Nonnull
+    @Column(name = "version", defaultValue = "1")
+    private Integer version = 1; // 修订次数
+    @Nonnull
     @FieldCheck(type = FieldCheck.Type.LENGTH, dataType = String.class, min = "1", max = "256")
     @Column(name = "player_name", isUnique = true, index = { "idx_players_player_name" })
     private String playerName; // 唯一用户名

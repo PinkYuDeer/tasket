@@ -30,8 +30,8 @@ import com.pinkyudeer.tasket.gui.GuiStyle;
 import com.pinkyudeer.tasket.gui.drawable.ShaderDrawable;
 import com.pinkyudeer.tasket.gui.screen.TaskScreen;
 import com.pinkyudeer.tasket.gui.widget.StyledButtonWidget;
-import com.pinkyudeer.tasket.network.handler.NetMainSync;
 import com.pinkyudeer.tasket.network.handler.NetTagSync;
+import com.pinkyudeer.tasket.network.handler.NetTaskSync;
 import com.pinkyudeer.tasket.network.handler.NetTeamSync;
 import com.pinkyudeer.tasket.task.entity.Task;
 
@@ -99,8 +99,13 @@ public class MainPanel extends ModularPanel {
     private long seenTaskRevision = -1;
     private long seenTeamRevision = -1;
     private long seenTagRevision = -1;
+    private boolean shownTaskTimeout;
+    private boolean shownTeamTimeout;
+    private boolean shownTagTimeout;
     private int lastPanelWidth = -1;
     private int lastPanelHeight = -1;
+    private int requestedTaskPage = -1;
+    private static final int TASK_PAGE_SIZE = 20;
 
     public MainPanel(TaskScreen taskScreen) {
         super("tasket_main_panel");
@@ -109,7 +114,7 @@ public class MainPanel extends ModularPanel {
         center();
         background(IDrawable.EMPTY);
         overlay(ShaderDrawable.panel(12f, PANEL_BG, ACCENT));
-        NetMainSync.requestSync();
+        requestViewSync(currentView);
         child(buildLayout());
     }
 
@@ -143,15 +148,30 @@ public class MainPanel extends ModularPanel {
         long tagRevision = TaskClientStore.INSTANCE.getTagRevision();
         if (taskRevision != seenTaskRevision) {
             seenTaskRevision = taskRevision;
+            shownTaskTimeout = false;
             if (currentView == ViewMode.TASKS) refreshTaskList();
+        }
+        if (currentView == ViewMode.TASKS && TaskClientStore.INSTANCE.isTaskTimedOut() && !shownTaskTimeout) {
+            shownTaskTimeout = true;
+            refreshTaskList();
         }
         if (teamRevision != seenTeamRevision) {
             seenTeamRevision = teamRevision;
+            shownTeamTimeout = false;
             if (currentView == ViewMode.TEAMS) refreshTeamList();
         }
         if (tagRevision != seenTagRevision) {
             seenTagRevision = tagRevision;
+            shownTagTimeout = false;
             if (currentView == ViewMode.TAGS) refreshTagList();
+        }
+        if (currentView == ViewMode.TEAMS && TaskClientStore.INSTANCE.isTeamTimedOut() && !shownTeamTimeout) {
+            shownTeamTimeout = true;
+            refreshTeamList();
+        }
+        if (currentView == ViewMode.TAGS && TaskClientStore.INSTANCE.isTagTimedOut() && !shownTagTimeout) {
+            shownTagTimeout = true;
+            refreshTagList();
         }
     }
 
@@ -255,8 +275,25 @@ public class MainPanel extends ModularPanel {
     private void switchView(ViewMode view) {
         if (currentView == view) return;
         currentView = view;
+        requestViewSync(view);
         refreshNavButtons();
         rebuildContentArea();
+    }
+
+    private void requestViewSync(ViewMode view) {
+        if (view == ViewMode.TASKS) {
+            requestTaskPage(0, true);
+        } else if (view == ViewMode.TEAMS) {
+            NetTeamSync.requestSync();
+        } else {
+            NetTagSync.requestSync();
+        }
+    }
+
+    private void requestTaskPage(int page, boolean resetPageCursor) {
+        if (resetPageCursor) requestedTaskPage = -1;
+        requestedTaskPage = Math.max(requestedTaskPage, page);
+        NetTaskSync.requestSync(page, TASK_PAGE_SIZE, sortModeKey(), showCompleted, showMineOnly);
     }
 
     private void refreshNavButtons() {
@@ -454,6 +491,7 @@ public class MainPanel extends ModularPanel {
             .onMousePressed(b -> {
                 showCompleted = !showCompleted;
                 refreshFilterButton();
+                requestTaskPage(0, true);
                 refreshTaskList();
                 return true;
             });
@@ -494,6 +532,7 @@ public class MainPanel extends ModularPanel {
             .onMousePressed(b -> {
                 showMineOnly = !showMineOnly;
                 refreshFilterButton();
+                requestTaskPage(0, true);
                 refreshTaskList();
                 return true;
             });
@@ -534,6 +573,7 @@ public class MainPanel extends ModularPanel {
                 } else {
                     currentSort = (currentSort == SortMode.TIME_DESC) ? SortMode.TIME_ASC : SortMode.TIME_DESC;
                 }
+                requestTaskPage(0, true);
                 refreshTaskList();
                 refreshSortButtons();
                 return true;
@@ -649,13 +689,17 @@ public class MainPanel extends ModularPanel {
         List<NBTTagCompound> teams = TaskClientStore.INSTANCE.getTeamList();
         teams.sort(Comparator.comparing(t -> t.getString("name"), String.CASE_INSENSITIVE_ORDER));
         if (teams.isEmpty()) {
+            String text = TaskClientStore.INSTANCE.isTeamTimedOut() ? "Loading timed out. Retry"
+                : TaskClientStore.INSTANCE.isTeamLoading() ? "Loading teams..." : "No teams yet.";
             teamListWidget.child(
-                IKey.str("No teams yet. Click '+ New Team' to create one.")
-                    .color(0x888888ff)
-                    .asWidget()
+                GuiStyle.button(text, 0x00000000, BTN_HOVER, GuiStyle.BUTTON_PRESSED, 0x888888ff, 1f)
                     .widthRel(1f)
                     .height(30)
-                    .marginTop(20));
+                    .marginTop(20)
+                    .onMousePressed(btn -> {
+                        if (TaskClientStore.INSTANCE.isTeamTimedOut()) NetTeamSync.requestSync();
+                        return true;
+                    }));
             return;
         }
         for (NBTTagCompound team : teams) {
@@ -668,13 +712,17 @@ public class MainPanel extends ModularPanel {
         List<NBTTagCompound> tags = TaskClientStore.INSTANCE.getTagList();
         tags.sort(Comparator.comparing(t -> t.getString("name"), String.CASE_INSENSITIVE_ORDER));
         if (tags.isEmpty()) {
+            String text = TaskClientStore.INSTANCE.isTagTimedOut() ? "Loading timed out. Retry"
+                : TaskClientStore.INSTANCE.isTagLoading() ? "Loading tags..." : "No tags yet.";
             tagListWidget.child(
-                IKey.str("No tags yet. Click '+ New Tag' to create one.")
-                    .color(0x888888ff)
-                    .asWidget()
+                GuiStyle.button(text, 0x00000000, BTN_HOVER, GuiStyle.BUTTON_PRESSED, 0x888888ff, 1f)
                     .widthRel(1f)
                     .height(30)
-                    .marginTop(20));
+                    .marginTop(20)
+                    .onMousePressed(btn -> {
+                        if (TaskClientStore.INSTANCE.isTagTimedOut()) NetTagSync.requestSync();
+                        return true;
+                    }));
             return;
         }
         populateTagCategory("Public", "PUBLIC", tags);
@@ -834,19 +882,13 @@ public class MainPanel extends ModularPanel {
                 if (t.getParentTaskId() == null) topLevel.add(t);
             }
             if (topLevel.isEmpty()) {
-                taskListWidget.child(
-                    IKey.str("No tasks yet. Click '+ New Task' to create one.")
-                        .color(0x888888ff)
-                        .asWidget()
-                        .widthRel(1f)
-                        .height(30)
-                        .marginTop(20)
-                        .name("task_list/empty_hint"));
+                addTaskStateHint();
             } else {
                 sortTasks(topLevel);
                 for (Task task : topLevel) {
                     addTaskAndChildren(task, 0);
                 }
+                addLoadMoreButton();
             }
         } catch (Exception e) {
             taskListWidget.child(
@@ -858,6 +900,50 @@ public class MainPanel extends ModularPanel {
                     .marginTop(20)
                     .name("task_list/error_hint"));
         }
+    }
+
+    private void addTaskStateHint() {
+        boolean timedOut = TaskClientStore.INSTANCE.isTaskTimedOut();
+        boolean loading = TaskClientStore.INSTANCE.isTaskLoading();
+        String text = timedOut ? "Loading timed out. Retry" : loading ? "Loading tasks..." : "No tasks yet.";
+        StyledButtonWidget hint = GuiStyle.button(text, 0x00000000, BTN_HOVER, GuiStyle.BUTTON_PRESSED, 0x888888ff, 1f);
+        hint.widthRel(1f)
+            .height(30)
+            .marginTop(20)
+            .name("task_list/state_hint")
+            .onMousePressed(btn -> {
+                if (TaskClientStore.INSTANCE.isTaskTimedOut()) requestTaskPage(0, true);
+                return true;
+            });
+        taskListWidget.child(hint);
+    }
+
+    private void addLoadMoreButton() {
+        int total = TaskClientStore.INSTANCE.getTaskTotalCount();
+        int loaded = TaskClientStore.INSTANCE.getTasksSnapshot()
+            .size();
+        if (TaskClientStore.INSTANCE.isTaskLoading()) {
+            taskListWidget.child(
+                IKey.str("Loading...")
+                    .color(0x888888ff)
+                    .asWidget()
+                    .widthRel(1f)
+                    .height(22)
+                    .marginTop(4)
+                    .name("task_list/loading_more"));
+            return;
+        }
+        if (total <= loaded) return;
+        taskListWidget.child(
+            GuiStyle.button("Load more")
+                .widthRel(1f)
+                .height(22)
+                .marginTop(4)
+                .name("task_list/load_more")
+                .onMousePressed(btn -> {
+                    requestTaskPage(requestedTaskPage + 1, false);
+                    return true;
+                }));
     }
 
     private void addTaskAndChildren(Task task, int depth) {
@@ -1288,6 +1374,14 @@ public class MainPanel extends ModularPanel {
             case CRITICAL -> "CRIT";
             case UNDEFINED -> "---";
             default -> priority.name();
+        };
+    }
+
+    private String sortModeKey() {
+        return switch (currentSort) {
+            case TIME_ASC -> "time_asc";
+            case TIME_DESC -> "time_desc";
+            default -> "priority";
         };
     }
 }

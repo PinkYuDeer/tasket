@@ -19,6 +19,10 @@ public final class TaskClientStore {
     private final Map<String, NBTTagCompound> tasks = new HashMap<>();
     private final Map<String, NBTTagCompound> teams = new HashMap<>();
     private final Map<String, NBTTagCompound> tags = new HashMap<>();
+    private final Map<String, String> taskVersions = new HashMap<>();
+    private final Map<String, String> teamVersions = new HashMap<>();
+    private final Map<String, String> tagVersions = new HashMap<>();
+    private long syncGlobalRev = -1;
     private NBTTagList invites = new NBTTagList();
     private String lastErrorCode = "";
     private String lastErrorMessage = "";
@@ -27,6 +31,15 @@ public final class TaskClientStore {
     private long tagRevision;
     private long inviteRevision;
     private long errorRevision;
+    private boolean taskLoading;
+    private boolean teamLoading;
+    private boolean tagLoading;
+    private long taskRequestTime;
+    private long teamRequestTime;
+    private long tagRequestTime;
+    private int taskTotalCount;
+    private int highestTaskPage = -1;
+    private long taskGlobalVersion;
 
     private TaskClientStore() {}
 
@@ -34,9 +47,19 @@ public final class TaskClientStore {
         tasks.clear();
         teams.clear();
         tags.clear();
+        taskVersions.clear();
+        teamVersions.clear();
+        tagVersions.clear();
+        syncGlobalRev = -1;
         invites = new NBTTagList();
         lastErrorCode = "";
         lastErrorMessage = "";
+        taskLoading = false;
+        teamLoading = false;
+        tagLoading = false;
+        taskTotalCount = 0;
+        highestTaskPage = -1;
+        taskGlobalVersion = 0;
         taskRevision++;
         teamRevision++;
         tagRevision++;
@@ -44,33 +67,62 @@ public final class TaskClientStore {
         errorRevision++;
     }
 
-    public synchronized void acceptTaskSync(NBTTagList data, boolean merge) {
-        if (!merge) tasks.clear();
-        for (int i = 0; i < data.tagCount(); i++) {
-            NBTTagCompound entry = data.getCompoundTagAt(i);
-            if (!entry.hasKey("id")) continue;
-            tasks.put(entry.getString("id"), (NBTTagCompound) entry.copy());
-            acceptTaskTags(entry.getTagList("tags", 10));
-        }
+    public synchronized void acceptTaskDelta(NBTTagList updated, NBTTagList deleted) {
+        taskLoading = false;
+        if (updated.tagCount() == 0 && deleted.tagCount() == 0) return;
+        applyTaskDelta(updated, deleted);
         taskRevision++;
     }
 
-    public synchronized void acceptTeamSync(NBTTagList data, boolean merge) {
-        if (!merge) teams.clear();
-        for (int i = 0; i < data.tagCount(); i++) {
-            NBTTagCompound entry = data.getCompoundTagAt(i);
+    public synchronized void acceptTaskPage(NBTTagList updated, NBTTagList deleted, int page, int totalCount,
+        long currentVersion, String mode) {
+        if (page == 0 && "full".equals(mode)) {
+            tasks.clear();
+            taskVersions.clear();
+            highestTaskPage = -1;
+        }
+        taskTotalCount = Math.max(0, totalCount);
+        highestTaskPage = Math.max(highestTaskPage, page);
+        taskGlobalVersion = Math.max(taskGlobalVersion, currentVersion);
+        applyTaskDelta(updated, deleted);
+        taskLoading = false;
+        taskRevision++;
+    }
+
+    public synchronized void acceptTeamDelta(NBTTagList updated, NBTTagList deleted) {
+        teamLoading = false;
+        if (updated.tagCount() == 0 && deleted.tagCount() == 0) return;
+        for (int i = 0; i < updated.tagCount(); i++) {
+            NBTTagCompound entry = updated.getCompoundTagAt(i);
             if (!entry.hasKey("id")) continue;
-            teams.put(entry.getString("id"), (NBTTagCompound) entry.copy());
+            String id = entry.getString("id");
+            teams.put(id, (NBTTagCompound) entry.copy());
+            teamVersions.put(id, entry.getString("_v"));
+        }
+        for (int i = 0; i < deleted.tagCount(); i++) {
+            String id = deleted.getCompoundTagAt(i)
+                .getString("id");
+            teams.remove(id);
+            teamVersions.remove(id);
         }
         teamRevision++;
     }
 
-    public synchronized void acceptTagSync(NBTTagList data, boolean merge) {
-        if (!merge) tags.clear();
-        for (int i = 0; i < data.tagCount(); i++) {
-            NBTTagCompound entry = data.getCompoundTagAt(i);
+    public synchronized void acceptTagDelta(NBTTagList updated, NBTTagList deleted) {
+        tagLoading = false;
+        if (updated.tagCount() == 0 && deleted.tagCount() == 0) return;
+        for (int i = 0; i < updated.tagCount(); i++) {
+            NBTTagCompound entry = updated.getCompoundTagAt(i);
             if (!entry.hasKey("id")) continue;
-            tags.put(entry.getString("id"), (NBTTagCompound) entry.copy());
+            String id = entry.getString("id");
+            tags.put(id, (NBTTagCompound) entry.copy());
+            tagVersions.put(id, entry.getString("_v"));
+        }
+        for (int i = 0; i < deleted.tagCount(); i++) {
+            String id = deleted.getCompoundTagAt(i)
+                .getString("id");
+            tags.remove(id);
+            tagVersions.remove(id);
         }
         tagRevision++;
     }
@@ -83,7 +135,28 @@ public final class TaskClientStore {
     public synchronized void acceptError(String code, String message) {
         lastErrorCode = code == null ? "" : code;
         lastErrorMessage = message == null ? "" : message;
+        taskLoading = false;
+        teamLoading = false;
+        tagLoading = false;
         errorRevision++;
+    }
+
+    public synchronized void markTaskLoading() {
+        taskLoading = true;
+        taskRequestTime = System.currentTimeMillis();
+        taskRevision++;
+    }
+
+    public synchronized void markTeamLoading() {
+        teamLoading = true;
+        teamRequestTime = System.currentTimeMillis();
+        teamRevision++;
+    }
+
+    public synchronized void markTagLoading() {
+        tagLoading = true;
+        tagRequestTime = System.currentTimeMillis();
+        tagRevision++;
     }
 
     public synchronized Map<String, NBTTagCompound> getTasksSnapshot() {
@@ -216,6 +289,73 @@ public final class TaskClientStore {
         return errorRevision;
     }
 
+    public synchronized long getSyncGlobalRev() {
+        return syncGlobalRev;
+    }
+
+    public synchronized boolean isTaskLoading() {
+        return taskLoading;
+    }
+
+    public synchronized boolean isTeamLoading() {
+        return teamLoading;
+    }
+
+    public synchronized boolean isTagLoading() {
+        return tagLoading;
+    }
+
+    public synchronized boolean isTaskTimedOut() {
+        return taskLoading && System.currentTimeMillis() - taskRequestTime > 5_000L;
+    }
+
+    public synchronized boolean isTeamTimedOut() {
+        return teamLoading && System.currentTimeMillis() - teamRequestTime > 5_000L;
+    }
+
+    public synchronized boolean isTagTimedOut() {
+        return tagLoading && System.currentTimeMillis() - tagRequestTime > 5_000L;
+    }
+
+    public synchronized int getTaskTotalCount() {
+        return taskTotalCount;
+    }
+
+    public synchronized int getHighestTaskPage() {
+        return highestTaskPage;
+    }
+
+    public synchronized long getTaskGlobalVersion() {
+        return taskGlobalVersion;
+    }
+
+    public synchronized void updateSyncRevision(long rev) {
+        syncGlobalRev = rev;
+    }
+
+    public synchronized NBTTagList getTaskVersionList() {
+        return buildVersionList(taskVersions);
+    }
+
+    public synchronized NBTTagList getTeamVersionList() {
+        return buildVersionList(teamVersions);
+    }
+
+    public synchronized NBTTagList getTagVersionList() {
+        return buildVersionList(tagVersions);
+    }
+
+    private static NBTTagList buildVersionList(Map<String, String> versions) {
+        NBTTagList list = new NBTTagList();
+        for (Map.Entry<String, String> e : versions.entrySet()) {
+            NBTTagCompound entry = new NBTTagCompound();
+            entry.setString("id", e.getKey());
+            entry.setString("v", e.getValue());
+            list.appendTag(entry);
+        }
+        return list;
+    }
+
     private void acceptTaskTags(NBTTagList taskTags) {
         boolean changed = false;
         for (int i = 0; i < taskTags.tagCount(); i++) {
@@ -232,6 +372,23 @@ public final class TaskClientStore {
             changed = true;
         }
         if (changed) tagRevision++;
+    }
+
+    private void applyTaskDelta(NBTTagList updated, NBTTagList deleted) {
+        for (int i = 0; i < updated.tagCount(); i++) {
+            NBTTagCompound entry = updated.getCompoundTagAt(i);
+            if (!entry.hasKey("id")) continue;
+            String id = entry.getString("id");
+            tasks.put(id, (NBTTagCompound) entry.copy());
+            taskVersions.put(id, entry.getString("_v"));
+            acceptTaskTags(entry.getTagList("tags", 10));
+        }
+        for (int i = 0; i < deleted.tagCount(); i++) {
+            String id = deleted.getCompoundTagAt(i)
+                .getString("id");
+            tasks.remove(id);
+            taskVersions.remove(id);
+        }
     }
 
     private Task readTask(NBTTagCompound tag) {

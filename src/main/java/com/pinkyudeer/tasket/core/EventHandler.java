@@ -42,7 +42,7 @@ public class EventHandler {
 
             Tasket.LOG.info("World save event triggered");
 
-            SQLiteManager.saveDataFromMemoryToFile();
+            SQLiteManager.checkpoint();
         }
 
         @SubscribeEvent
@@ -67,7 +67,7 @@ public class EventHandler {
 
             if (event.player instanceof EntityPlayerMP player) {
                 TeamService.syncLinkedTeamsForPlayer(player.getUniqueID(), isOp(player));
-                NetMainSync.sendReset(player, true, true);
+                NetMainSync.sendReset(player, true, false);
             }
         }
 

@@ -2,7 +2,12 @@ package com.pinkyudeer.tasket.task.service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import com.pinkyudeer.tasket.Tasket;
@@ -149,6 +154,51 @@ public final class TagService {
             .list();
     }
 
+    /**
+     * 批量加载多个任务的可见标签，避免 N+1 查询。一次查 tag_links + tags，再按 task_id 分组。
+     */
+    public static Map<String, List<Tag>> collectTagsByTask(Collection<String> taskIds) {
+        if (taskIds == null || taskIds.isEmpty()) return Collections.emptyMap();
+        Map<UUID, String> uuidToId = new HashMap<>();
+        List<UUID> uuidList = new ArrayList<>();
+        for (String taskId : taskIds) {
+            if (isBlank(taskId)) continue;
+            try {
+                UUID uuid = UUID.fromString(taskId);
+                if (uuidToId.putIfAbsent(uuid, taskId) == null) uuidList.add(uuid);
+            } catch (IllegalArgumentException ignored) {}
+        }
+        if (uuidList.isEmpty()) return Collections.emptyMap();
+
+        List<TagLink> links;
+        try {
+            links = SQLHelper.select(TagLink.class)
+                .where("entity_type", SQLHelper.Operator.EQ, RelatedEntityType.TASK)
+                .where("entity_id", SQLHelper.Operator.IN, uuidList)
+                .where("is_active", SQLHelper.Operator.EQ, 1)
+                .list();
+        } catch (Exception e) {
+            Tasket.LOG.warn("Failed to batch load task tag links", e);
+            return Collections.emptyMap();
+        }
+        if (links.isEmpty()) return Collections.emptyMap();
+
+        Map<UUID, Tag> tagCache = new HashMap<>();
+        for (Tag tag : getAllTags()) {
+            if (tag != null && tag.getId() != null) tagCache.put(tag.getId(), tag);
+        }
+
+        Map<String, List<Tag>> result = new LinkedHashMap<>();
+        for (TagLink link : links) {
+            String key = uuidToId.get(link.getEntityId());
+            Tag tag = tagCache.get(link.getTagId());
+            if (key == null || tag == null) continue;
+            result.computeIfAbsent(key, k -> new ArrayList<>())
+                .add(tag);
+        }
+        return result;
+    }
+
     public static List<TagLink> getActiveTaskTagLinks(String taskId) {
         if (isBlank(taskId)) return new ArrayList<>();
         return SQLHelper.select(TagLink.class)
@@ -185,9 +235,17 @@ public final class TagService {
     }
 
     public static List<Tag> getVisibleTagsForPlayer(UUID playerId, boolean isOp) {
+        return getVisibleTagsForPlayer(playerId, isOp, null);
+    }
+
+    /**
+     * 已知玩家可见的团队列表时直接复用，避免再调用一次 {@code getAllTeams()}。
+     */
+    public static List<Tag> getVisibleTagsForPlayer(UUID playerId, boolean isOp, List<Team> visibleTeams) {
         List<Tag> visible = new ArrayList<>();
         List<UUID> teamIds = new ArrayList<>();
-        for (Team team : TeamService.getVisibleTeams(playerId)) {
+        List<Team> teams = visibleTeams != null ? visibleTeams : TeamService.getVisibleTeams(playerId);
+        for (Team team : teams) {
             if (team.getId() != null) teamIds.add(team.getId());
         }
         for (Tag tag : getAllTags()) {

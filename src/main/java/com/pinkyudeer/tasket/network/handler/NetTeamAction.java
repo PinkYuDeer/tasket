@@ -36,48 +36,48 @@ public final class NetTeamAction {
                 Team team = TeamService
                     .createLocalTeam(payload.getString("name"), actorId, payload.getString("description"));
                 linkCreatedTeam(team, payload.getString("source"), actorId, op);
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else if ("invite".equals(action)) {
                 TeamService.invitePlayer(requireUuid(payload, "teamId"), requireUuid(payload, "playerId"), actorId);
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else if ("request_join".equals(action)) {
                 TeamService.requestJoin(requireUuid(payload, "teamId"), actorId, payload.getString("reason"));
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else if ("accept".equals(action)) {
                 TeamService.acceptRequest(requireUuid(payload, "requestId"), actorId, op);
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else if ("kick".equals(action)) {
                 TeamService.kickMember(requireUuid(payload, "teamId"), requireUuid(payload, "playerId"), actorId, op);
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else if ("leave".equals(action)) {
                 TeamService.leaveTeam(requireUuid(payload, "teamId"), actorId);
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else if ("transfer_owner".equals(action)) {
                 TeamService
                     .transferOwner(requireUuid(payload, "teamId"), requireUuid(payload, "playerId"), actorId, op);
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else if ("link_bq".equals(action)) {
                 TeamService.linkBetterQuestingParty(
                     requireUuid(payload, "teamId"),
                     payload.getInteger("partyId"),
                     actorId,
                     op);
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else if ("sync_bq".equals(action)) {
                 TeamService.syncBetterQuestingTeam(requireUuid(payload, "teamId"), actorId, op);
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else if ("unlink_bq".equals(action)) {
                 TeamService.unlinkBetterQuestingTeam(requireUuid(payload, "teamId"), actorId, op);
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else if ("link_gtnh".equals(action)) {
                 TeamService.linkGtnhLibTeam(requireUuid(payload, "teamId"), payload.getString("teamKey"), actorId, op);
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else if ("sync_gtnh".equals(action)) {
                 TeamService.syncGtnhLibTeam(requireUuid(payload, "teamId"), actorId, op);
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else if ("unlink_gtnh".equals(action) || "unlink_external".equals(action)) {
                 TeamService.unlinkExternalTeam(requireUuid(payload, "teamId"), actorId, op);
-                NetTeamSync.sendSync(sender, true);
+                NetTeamSync.sendSync(sender);
             } else {
                 NetError.send(sender, NetError.INVALID_ACTION, action);
             }

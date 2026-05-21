@@ -101,7 +101,7 @@ public final class NetTaskAction {
                     ok = TaskService
                         .changeStatus(payload.getString("taskId"), readStatus(payload), sender.getUniqueID());
                 }
-                if (ok) NetTaskSync.sendSync(sender, true);
+                if (ok) NetTaskSync.sendSync(sender);
                 else NetError.send(sender, NetError.SERVER_ERROR, "task update failed");
             } else if ("change_status".equals(action)) {
                 Task task = TaskService.getTask(payload.getString("taskId"));
@@ -112,7 +112,7 @@ public final class NetTaskAction {
                 assertCanWrite(sender, task);
                 boolean ok = TaskService
                     .changeStatus(payload.getString("taskId"), readStatus(payload), sender.getUniqueID());
-                if (ok) NetTaskSync.sendSync(sender, true);
+                if (ok) NetTaskSync.sendSync(sender);
                 else NetError.send(sender, NetError.NOT_FOUND, "task not found");
             } else if ("complete".equals(action)) {
                 Task task = TaskService.getTask(payload.getString("taskId"));
@@ -122,7 +122,7 @@ public final class NetTaskAction {
                 }
                 assertCanWrite(sender, task);
                 boolean ok = TaskService.completeTask(payload.getString("taskId"), sender.getUniqueID());
-                if (ok) NetTaskSync.sendSync(sender, true);
+                if (ok) NetTaskSync.sendSync(sender);
                 else NetError.send(sender, NetError.NOT_FOUND, "task not found");
             } else if ("delete".equals(action)) {
                 Task task = TaskService.getTask(payload.getString("taskId"));
@@ -169,7 +169,7 @@ public final class NetTaskAction {
                 List<UUID> assignees = payload.hasKey("assigneeIds") ? readUuidList(payload, "assigneeIds")
                     : singleUuid(readUuid(payload, "assigneeId"));
                 boolean ok = TaskService.setAssigneesForTask(contextForTask(sender, task), task.getId(), assignees);
-                if (ok) NetTaskSync.sendSync(sender, true);
+                if (ok) NetTaskSync.sendSync(sender);
                 else NetError.send(sender, NetError.SERVER_ERROR, "task assign failed");
             } else {
                 NetError.send(sender, NetError.INVALID_ACTION, action);
@@ -295,8 +295,8 @@ public final class NetTaskAction {
     }
 
     private static void sendTaskAndTagSync(EntityPlayerMP sender) {
-        NetTaskSync.sendSync(sender, true);
-        NetTagSync.sendSync(sender, true);
+        NetTaskSync.sendSync(sender);
+        NetTagSync.sendSync(sender);
     }
 
     private static final class TaskNotFoundException extends RuntimeException {

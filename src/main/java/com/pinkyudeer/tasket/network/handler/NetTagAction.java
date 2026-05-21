@@ -40,7 +40,7 @@ public final class NetTagAction {
                     scope,
                     ownerTeamId);
                 if (tag == null) NetError.send(sender, NetError.SERVER_ERROR, "tag create failed");
-                else NetTagSync.sendSync(sender, true);
+                else NetTagSync.sendSync(sender);
             } else if ("update".equals(action)) {
                 UUID tagId = readUuid(payload, "tagId");
                 Tag tag = TagService.updateTag(
@@ -50,7 +50,7 @@ public final class NetTagAction {
                     payload.getString("description"),
                     payload.getString("colorCode"));
                 if (tag == null) NetError.send(sender, NetError.SERVER_ERROR, "tag update failed");
-                else NetTagSync.sendSync(sender, true);
+                else NetTagSync.sendSync(sender);
             } else {
                 NetError.send(sender, NetError.INVALID_ACTION, action);
             }
