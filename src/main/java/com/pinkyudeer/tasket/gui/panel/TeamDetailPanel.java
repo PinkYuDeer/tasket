@@ -9,7 +9,6 @@ import net.minecraft.nbt.NBTTagList;
 import org.lwjgl.input.Keyboard;
 
 import com.cleanroommc.modularui.api.IPanelHandler;
-import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
@@ -18,6 +17,7 @@ import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.pinkyudeer.tasket.Tasket;
 import com.pinkyudeer.tasket.client.TeamClientActions;
 import com.pinkyudeer.tasket.gui.GuiStyle;
+import com.pinkyudeer.tasket.gui.drawable.FrostedGlassDrawable;
 import com.pinkyudeer.tasket.gui.drawable.ShaderDrawable;
 import com.pinkyudeer.tasket.gui.widget.StyledButtonWidget;
 
@@ -25,13 +25,18 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 @SideOnly(Side.CLIENT)
-public class TeamDetailPanel extends ModularPanel {
+public class TeamDetailPanel extends AnimatedPanel {
+
+    private static int nextId;
 
     private final NBTTagCompound team;
     private final Runnable onChanged;
+    private final String uid = String.valueOf(nextId++);
     private ListWidget<IWidget, ?> memberList;
     private IPanelHandler invitePickerHandler;
     private IPanelHandler transferPickerHandler;
+    private IWidget pendingInviteAnchor;
+    private IWidget pendingTransferAnchor;
 
     public TeamDetailPanel(NBTTagCompound team, Runnable onChanged) {
         super("tasket_team_detail");
@@ -39,9 +44,14 @@ public class TeamDetailPanel extends ModularPanel {
         this.onChanged = onChanged;
         size(460, 360);
         center();
-        background(IDrawable.EMPTY);
+        background(FrostedGlassDrawable.create(10f));
+        disableHoverBackground();
         overlay(ShaderDrawable.panel(10f, 0x222233D8, GuiStyle.ACCENT));
         child(buildContent());
+    }
+
+    private String pn(String base) {
+        return "team_detail_" + base + "_" + uid;
     }
 
     @Override
@@ -300,16 +310,26 @@ public class TeamDetailPanel extends ModularPanel {
     }
 
     private void openInvitePicker(IWidget anchor) {
-        if (invitePickerHandler != null) invitePickerHandler.deleteCachedPanel();
-        invitePickerHandler = IPanelHandler
-            .simple(this, (p, pl) -> buildPlayerPicker("tasket_team_invite", anchor, true), true);
+        pendingInviteAnchor = anchor;
+        if (invitePickerHandler == null) {
+            invitePickerHandler = IPanelHandler
+                .simple(this, (p, pl) -> buildPlayerPicker(pn("team_invite"), pendingInviteAnchor, true), true);
+        } else {
+            if (invitePickerHandler.isPanelOpen()) return;
+            invitePickerHandler.deleteCachedPanel();
+        }
         invitePickerHandler.openPanel();
     }
 
     private void openTransferPicker(IWidget anchor) {
-        if (transferPickerHandler != null) transferPickerHandler.deleteCachedPanel();
-        transferPickerHandler = IPanelHandler
-            .simple(this, (p, pl) -> buildPlayerPicker("tasket_team_transfer", anchor, false), true);
+        pendingTransferAnchor = anchor;
+        if (transferPickerHandler == null) {
+            transferPickerHandler = IPanelHandler
+                .simple(this, (p, pl) -> buildPlayerPicker(pn("team_transfer"), pendingTransferAnchor, false), true);
+        } else {
+            if (transferPickerHandler.isPanelOpen()) return;
+            transferPickerHandler.deleteCachedPanel();
+        }
         transferPickerHandler.openPanel();
     }
 
@@ -317,7 +337,8 @@ public class TeamDetailPanel extends ModularPanel {
         ModularPanel panel = new InputSafePanel(name);
         panel.size(170, 150);
         placeBelow(panel, anchor);
-        panel.background(IDrawable.EMPTY);
+        panel.background(FrostedGlassDrawable.create(6f));
+        panel.disableHoverBackground();
         panel.overlay(ShaderDrawable.panel(6f, 0x1E1E38F0, GuiStyle.ACCENT));
 
         ListWidget<IWidget, ?> list = new ListWidget<>();

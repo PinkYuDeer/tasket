@@ -14,7 +14,6 @@ import net.minecraft.nbt.NBTTagList;
 import org.lwjgl.input.Keyboard;
 
 import com.cleanroommc.modularui.api.IPanelHandler;
-import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
@@ -25,6 +24,7 @@ import com.pinkyudeer.tasket.Tasket;
 import com.pinkyudeer.tasket.client.TaskClientActions;
 import com.pinkyudeer.tasket.client.TaskClientStore;
 import com.pinkyudeer.tasket.gui.GuiStyle;
+import com.pinkyudeer.tasket.gui.drawable.FrostedGlassDrawable;
 import com.pinkyudeer.tasket.gui.drawable.ShaderDrawable;
 import com.pinkyudeer.tasket.gui.widget.StyledButtonWidget;
 import com.pinkyudeer.tasket.gui.widget.StyledMultilineTextField;
@@ -35,7 +35,7 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 @SideOnly(Side.CLIENT)
-public class TaskDetailPanel extends ModularPanel {
+public class TaskDetailPanel extends AnimatedPanel {
 
     private static final int FORM_BG = 0x222233D8;
     private static final int SELECTOR_ACTIVE = 0x446688c0;
@@ -43,9 +43,11 @@ public class TaskDetailPanel extends ModularPanel {
     private static final int SELECTOR_HOVER = 0x28304860;
     private static final int SUBTASK_BG = 0x18182840;
     private static final int SUBTASK_HOVER = 0x28304860;
+    private static int nextId;
 
     private final Task task;
     private final Runnable onChanged;
+    private final String uid = String.valueOf(nextId++);
     private final StyledTextField titleField;
     private final StyledMultilineTextField descField;
     private final int detailPanelHeight;
@@ -74,6 +76,7 @@ public class TaskDetailPanel extends ModularPanel {
     private IPanelHandler subtaskFormHandler;
     private IPanelHandler subtaskDetailHandler;
     private Task pendingSubtaskDetail;
+    private IWidget pendingAnchor;
     private long lastTaskRevision = -1;
     private long lastTagRevision = -1;
 
@@ -107,7 +110,8 @@ public class TaskDetailPanel extends ModularPanel {
         this.detailPanelHeight = GuiStyle.fitPanelHeight(380, 18, 250);
         size(460, detailPanelHeight);
         center();
-        background(IDrawable.EMPTY);
+        background(FrostedGlassDrawable.create(10f));
+        disableHoverBackground();
         overlay(ShaderDrawable.panel(10f, FORM_BG, GuiStyle.ACCENT));
 
         titleField = GuiStyle.textField();
@@ -120,8 +124,17 @@ public class TaskDetailPanel extends ModularPanel {
         child(buildContent());
     }
 
+    private String pn(String base) {
+        return "task_detail_" + base + "_" + uid;
+    }
+
     @Override
     public boolean disablePanelsBelow() {
+        return true;
+    }
+
+    @Override
+    public boolean closeOnOutOfBoundsClick() {
         return true;
     }
 
@@ -350,83 +363,103 @@ public class TaskDetailPanel extends ModularPanel {
     }
 
     private void openStatusPicker(StyledButtonWidget anchor) {
-        if (statusPickerHandler != null) statusPickerHandler.deleteCachedPanel();
-        statusPickerHandler = IPanelHandler.simple(
-            this,
-            (ModularPanel p, EntityPlayer pl) -> buildPickerPanel(
-                "tasket_pick_status",
-                "Status",
-                ALL_STATUSES,
-                Enum::name,
-                st -> st == selectedStatus,
-                TaskDetailPanel::getStatusTextColor,
-                st -> {
-                    selectedStatus = st;
-                    if (st == Task.TaskStatus.UnClaimed) selectedAssigneeIds.clear();
-                    rebuildRightPane();
-                },
-                anchor),
-            true);
+        pendingAnchor = anchor;
+        if (statusPickerHandler == null) {
+            statusPickerHandler = IPanelHandler.simple(
+                this,
+                (ModularPanel p, EntityPlayer pl) -> buildPickerPanel(
+                    pn("pick_status"),
+                    "Status",
+                    ALL_STATUSES,
+                    Enum::name,
+                    st -> st == selectedStatus,
+                    TaskDetailPanel::getStatusTextColor,
+                    st -> {
+                        selectedStatus = st;
+                        if (st == Task.TaskStatus.UnClaimed) selectedAssigneeIds.clear();
+                        rebuildRightPane();
+                    },
+                    pendingAnchor),
+                true);
+        } else {
+            if (statusPickerHandler.isPanelOpen()) return;
+            statusPickerHandler.deleteCachedPanel();
+        }
         statusPickerHandler.openPanel();
     }
 
     private void openImportancePicker(StyledButtonWidget anchor) {
-        if (importancePickerHandler != null) importancePickerHandler.deleteCachedPanel();
-        importancePickerHandler = IPanelHandler.simple(
-            this,
-            (ModularPanel p, EntityPlayer pl) -> buildPickerPanel(
-                "tasket_pick_importance",
-                "Importance",
-                ALL_IMPORTANCES,
-                Enum::name,
-                imp -> imp == selectedImportance,
-                TaskDetailPanel::getImportanceLevelColor,
-                imp -> {
-                    selectedImportance = imp;
-                    rebuildRightPane();
-                },
-                anchor),
-            true);
+        pendingAnchor = anchor;
+        if (importancePickerHandler == null) {
+            importancePickerHandler = IPanelHandler.simple(
+                this,
+                (ModularPanel p, EntityPlayer pl) -> buildPickerPanel(
+                    pn("pick_importance"),
+                    "Importance",
+                    ALL_IMPORTANCES,
+                    Enum::name,
+                    imp -> imp == selectedImportance,
+                    TaskDetailPanel::getImportanceLevelColor,
+                    imp -> {
+                        selectedImportance = imp;
+                        rebuildRightPane();
+                    },
+                    pendingAnchor),
+                true);
+        } else {
+            if (importancePickerHandler.isPanelOpen()) return;
+            importancePickerHandler.deleteCachedPanel();
+        }
         importancePickerHandler.openPanel();
     }
 
     private void openUrgencyPicker(StyledButtonWidget anchor) {
-        if (urgencyPickerHandler != null) urgencyPickerHandler.deleteCachedPanel();
-        urgencyPickerHandler = IPanelHandler.simple(
-            this,
-            (ModularPanel p, EntityPlayer pl) -> buildPickerPanel(
-                "tasket_pick_urgency",
-                "Urgency",
-                ALL_URGENCIES,
-                Enum::name,
-                urg -> urg == selectedUrgency,
-                TaskDetailPanel::getUrgencyLevelColor,
-                urg -> {
-                    selectedUrgency = urg;
-                    rebuildRightPane();
-                },
-                anchor),
-            true);
+        pendingAnchor = anchor;
+        if (urgencyPickerHandler == null) {
+            urgencyPickerHandler = IPanelHandler.simple(
+                this,
+                (ModularPanel p, EntityPlayer pl) -> buildPickerPanel(
+                    pn("pick_urgency"),
+                    "Urgency",
+                    ALL_URGENCIES,
+                    Enum::name,
+                    urg -> urg == selectedUrgency,
+                    TaskDetailPanel::getUrgencyLevelColor,
+                    urg -> {
+                        selectedUrgency = urg;
+                        rebuildRightPane();
+                    },
+                    pendingAnchor),
+                true);
+        } else {
+            if (urgencyPickerHandler.isPanelOpen()) return;
+            urgencyPickerHandler.deleteCachedPanel();
+        }
         urgencyPickerHandler.openPanel();
     }
 
     private void openVisibilityPicker(StyledButtonWidget anchor) {
-        if (visibilityPickerHandler != null) visibilityPickerHandler.deleteCachedPanel();
-        visibilityPickerHandler = IPanelHandler.simple(
-            this,
-            (ModularPanel p, EntityPlayer pl) -> buildPickerPanel(
-                "tasket_pick_scope",
-                "Scope",
-                visibilityValues(),
-                Enum::name,
-                scope -> scope == selectedVisibility,
-                TaskDetailPanel::getVisibilityColor,
-                scope -> {
-                    selectedVisibility = scope;
-                    rebuildRightPane();
-                },
-                anchor),
-            true);
+        pendingAnchor = anchor;
+        if (visibilityPickerHandler == null) {
+            visibilityPickerHandler = IPanelHandler.simple(
+                this,
+                (ModularPanel p, EntityPlayer pl) -> buildPickerPanel(
+                    pn("pick_scope"),
+                    "Scope",
+                    visibilityValues(),
+                    Enum::name,
+                    scope -> scope == selectedVisibility,
+                    TaskDetailPanel::getVisibilityColor,
+                    scope -> {
+                        selectedVisibility = scope;
+                        rebuildRightPane();
+                    },
+                    pendingAnchor),
+                true);
+        } else {
+            if (visibilityPickerHandler.isPanelOpen()) return;
+            visibilityPickerHandler.deleteCachedPanel();
+        }
         visibilityPickerHandler.openPanel();
     }
 
@@ -444,7 +477,8 @@ public class TaskDetailPanel extends ModularPanel {
         ModularPanel picker = new InputSafePanel(panelName);
         picker.size(panelW, panelH);
         placeNear(picker, anchor);
-        picker.background(IDrawable.EMPTY);
+        picker.background(FrostedGlassDrawable.create(6f));
+        picker.disableHoverBackground();
         picker.overlay(ShaderDrawable.panel(6f, 0x1E1E38F0, GuiStyle.ACCENT));
 
         Flow col = Flow.column();
@@ -490,13 +524,18 @@ public class TaskDetailPanel extends ModularPanel {
     }
 
     private void openAssigneePicker(StyledButtonWidget anchor) {
-        if (assigneePickerHandler != null) assigneePickerHandler.deleteCachedPanel();
-        assigneePickerHandler = IPanelHandler.simple(this, (p, pl) -> buildAssigneePanel(anchor), true);
+        pendingAnchor = anchor;
+        if (assigneePickerHandler == null) {
+            assigneePickerHandler = IPanelHandler.simple(this, (p, pl) -> buildAssigneePanel(pendingAnchor), true);
+        } else {
+            if (assigneePickerHandler.isPanelOpen()) return;
+            assigneePickerHandler.deleteCachedPanel();
+        }
         assigneePickerHandler.openPanel();
     }
 
     private ModularPanel buildAssigneePanel(IWidget anchor) {
-        ModularPanel picker = new InputSafePanel("tasket_pick_assignee");
+        ModularPanel picker = new InputSafePanel(pn("pick_assignee"));
         picker.size(
             Math.max(
                 148,
@@ -505,7 +544,8 @@ public class TaskDetailPanel extends ModularPanel {
                         .w()),
             166);
         placeNear(picker, anchor);
-        picker.background(IDrawable.EMPTY);
+        picker.background(FrostedGlassDrawable.create(6f));
+        picker.disableHoverBackground();
         picker.overlay(ShaderDrawable.panel(6f, 0x1E1E38F0, GuiStyle.ACCENT));
 
         Flow col = Flow.column();
@@ -709,16 +749,22 @@ public class TaskDetailPanel extends ModularPanel {
     }
 
     private void openTagPanel(IWidget anchor) {
-        if (tagPickerHandler != null) tagPickerHandler.deleteCachedPanel();
-        tagPickerHandler = IPanelHandler.simple(this, (p, pl) -> buildTagPanel(anchor), true);
+        pendingAnchor = anchor;
+        if (tagPickerHandler == null) {
+            tagPickerHandler = IPanelHandler.simple(this, (p, pl) -> buildTagPanel(pendingAnchor), true);
+        } else {
+            if (tagPickerHandler.isPanelOpen()) return;
+            tagPickerHandler.deleteCachedPanel();
+        }
         tagPickerHandler.openPanel();
     }
 
     private ModularPanel buildTagPanel(IWidget anchor) {
-        ModularPanel panel = new InputSafePanel("tasket_task_tags");
+        ModularPanel panel = new InputSafePanel(pn("task_tags"));
         panel.size(252, 190);
         placeNear(panel, anchor);
-        panel.background(IDrawable.EMPTY);
+        panel.background(FrostedGlassDrawable.create(6f));
+        panel.disableHoverBackground();
         panel.overlay(ShaderDrawable.panel(6f, 0x1E1E38F0, GuiStyle.ACCENT));
         resetDraftTags();
 
@@ -958,8 +1004,13 @@ public class TaskDetailPanel extends ModularPanel {
     }
 
     private void openTagForm(ModularPanel parent) {
-        if (tagFormHandler != null) tagFormHandler.deleteCachedPanel();
-        tagFormHandler = IPanelHandler.simple(parent, (p, pl) -> new TagFormPanel(this::refreshTags), true);
+        if (tagFormHandler == null) {
+            tagFormHandler = IPanelHandler
+                .simple(this, (p, pl) -> new TagFormPanel(this::refreshTags, pn("tag_form")), true);
+        } else {
+            if (tagFormHandler.isPanelOpen()) return;
+            tagFormHandler.deleteCachedPanel();
+        }
         tagFormHandler.openPanel();
     }
 
@@ -1075,7 +1126,7 @@ public class TaskDetailPanel extends ModularPanel {
                 .simple(this, (ModularPanel p, EntityPlayer pl) -> new TaskFormPanel(() -> {
                     refreshSubtasks();
                     if (onChanged != null) onChanged.run();
-                }, task.getId()), true);
+                }, task.getId(), pn("subtask_form")), true);
         } else {
             if (subtaskFormHandler.isPanelOpen()) return;
             subtaskFormHandler.deleteCachedPanel();
@@ -1090,7 +1141,7 @@ public class TaskDetailPanel extends ModularPanel {
                 .simple(this, (ModularPanel p, EntityPlayer pl) -> new TaskDetailPanel(pendingSubtaskDetail, () -> {
                     refreshSubtasks();
                     if (onChanged != null) onChanged.run();
-                }, "tasket_subtask_detail"), true);
+                }, pn("subtask_detail")), true);
         } else {
             if (subtaskDetailHandler.isPanelOpen()) return;
             subtaskDetailHandler.deleteCachedPanel();
@@ -1110,7 +1161,7 @@ public class TaskDetailPanel extends ModularPanel {
         if (!isCompleted) {
             actions.child(
                 GuiStyle.smallButton("Complete", GuiStyle.BUTTON_BG, 0x66CC66ff)
-                    .widthRel(0.27f)
+                    .widthRel(0.22f)
                     .height(14)
                     .name("detail/actions/btn_complete")
                     .onMousePressed(btn -> {
@@ -1121,7 +1172,7 @@ public class TaskDetailPanel extends ModularPanel {
 
         actions.child(
             GuiStyle.dangerButton("Delete")
-                .widthRel(0.22f)
+                .widthRel(0.18f)
                 .height(14)
                 .marginLeft(isCompleted ? 0 : 3)
                 .name("detail/actions/btn_delete")
@@ -1131,9 +1182,20 @@ public class TaskDetailPanel extends ModularPanel {
                 }));
 
         actions.child(
+            GuiStyle.smallButton("Share", GuiStyle.BUTTON_BG, 0x66CCFFff)
+                .widthRel(0.18f)
+                .height(14)
+                .marginLeft(3)
+                .name("detail/actions/btn_share")
+                .onMousePressed(btn -> {
+                    shareTask();
+                    return true;
+                }));
+
+        actions.child(
             IKey.str("")
                 .asWidget()
-                .widthRel(isCompleted ? 0.48f : 0.27f)
+                .widthRel(isCompleted ? 0.3f : 0.14f)
                 .heightRel(1f));
 
         actions.child(
@@ -1191,6 +1253,42 @@ public class TaskDetailPanel extends ModularPanel {
             if (onChanged != null) onChanged.run();
         } catch (Exception e) {
             Tasket.LOG.error("Failed to delete task", e);
+        }
+    }
+
+    private void shareTask() {
+        String title = titleField.getText();
+        if (title == null || title.trim()
+            .isEmpty()) title = task.getTitle();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("[Tasket] ")
+            .append(title);
+        sb.append(" | ")
+            .append(selectedStatus.name());
+        if (selectedImportance != Task.Importance.UNDEFINED) sb.append(" | Imp:")
+            .append(selectedImportance.name());
+        if (selectedUrgency != Task.Urgency.UNDEFINED) sb.append(" | Urg:")
+            .append(selectedUrgency.name());
+        if (!selectedAssigneeIds.isEmpty()) sb.append(" | -> ")
+            .append(formatAssignees(selectedAssigneeIds));
+
+        String desc = descField.getFullText();
+        if (desc != null && !desc.trim()
+            .isEmpty()) {
+            String shortDesc = desc.trim()
+                .replace('\n', ' ');
+            if (shortDesc.length() > 60) shortDesc = shortDesc.substring(0, 58) + "..";
+            sb.append(" | ")
+                .append(shortDesc);
+        }
+
+        String message = sb.toString();
+        net.minecraft.client.gui.GuiScreen.setClipboardString(message);
+
+        if (Minecraft.getMinecraft().thePlayer != null) {
+            Minecraft.getMinecraft().thePlayer
+                .addChatMessage(new net.minecraft.util.ChatComponentText("§7[Tasket] Task info copied to clipboard."));
         }
     }
 

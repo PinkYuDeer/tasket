@@ -59,7 +59,7 @@ public final class NetTaskSync {
 
     public static void sendSync(EntityPlayerMP player) {
         NetMainSync.bumpRevision();
-        sendPageAsync(player, new HashMap<>(), 0, DEFAULT_PAGE_SIZE, "priority", false, false, 0L);
+        sendPageAsync(player, new HashMap<>(), 0, DEFAULT_PAGE_SIZE, "priority", true, false, 0L);
     }
 
     static void sendDelta(EntityPlayerMP player, Map<String, String> clientVersions, Map<UUID, Player> playerCache) {

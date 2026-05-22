@@ -5,6 +5,7 @@ import org.lwjgl.opengl.GL11;
 import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.screen.viewport.GuiContext;
 import com.cleanroommc.modularui.theme.WidgetTheme;
+import com.pinkyudeer.tasket.gui.panel.AnimatedPanel;
 import com.pinkyudeer.tasket.render.GLShaderDrawHelper;
 
 import cpw.mods.fml.relauncher.Side;
@@ -26,21 +27,44 @@ public class ShaderDrawable implements IDrawable {
     @Override
     public void draw(GuiContext context, int x, int y, int width, int height, WidgetTheme widgetTheme) {
         if (config == null) return;
+        float alpha = AnimatedPanel.currentDrawAlpha;
+        if (alpha <= 0.0f) return;
         if (needsSetup || width != lastW || height != lastH) {
             config = copy(baseConfig).setup(width, height);
             lastW = width;
             lastH = height;
             needsSetup = false;
         }
+        GLShaderDrawHelper.CustomRectConfig drawConfig = config;
+        if (alpha < 0.999f) {
+            drawConfig = copy(config);
+            modulateAlpha(drawConfig, alpha);
+        }
         boolean translate = x != 0 || y != 0;
         if (translate) {
             GL11.glPushMatrix();
             GL11.glTranslatef(x, y, 0);
         }
-        GLShaderDrawHelper.drawComplexRect(config);
+        GLShaderDrawHelper.drawComplexRect(drawConfig);
         if (translate) {
             GL11.glPopMatrix();
         }
+    }
+
+    private static void modulateAlpha(GLShaderDrawHelper.CustomRectConfig config, float alpha) {
+        config.colorBg = modulateAlpha(config.colorBg, alpha);
+        config.colorRect = modulateAlpha(config.colorRect, alpha);
+        config.colorBorder = modulateAlpha(config.colorBorder, alpha);
+        config.colorShadow = modulateAlpha(config.colorShadow, alpha);
+        config.colorShadow2 = modulateAlpha(config.colorShadow2, alpha);
+        config.colorInnerShadow = modulateAlpha(config.colorInnerShadow, alpha);
+        config.colorInnerShadow2 = modulateAlpha(config.colorInnerShadow2, alpha);
+    }
+
+    private static int modulateAlpha(int color, float alpha) {
+        int originalAlpha = color & 0xFF;
+        int scaledAlpha = Math.max(0, Math.min(255, Math.round(originalAlpha * alpha)));
+        return (color & 0xFFFFFF00) | scaledAlpha;
     }
 
     private static GLShaderDrawHelper.CustomRectConfig copy(GLShaderDrawHelper.CustomRectConfig source) {
@@ -94,6 +118,8 @@ public class ShaderDrawable implements IDrawable {
             .rectColor(color)
             .rectEdgeSoftness(1.0f)
             .border(1f, 0.6f, 0.0f, borderColor)
+            .shadow(8f, 0f, 3f, 0x00000066)
+            .innerShadow(4f, 0f, -2f, 0xFFFFFF18)
             .build();
     }
 

@@ -79,10 +79,10 @@ public class MainPanel extends ModularPanel {
     private IPanelHandler teamDetailHandler;
     private IPanelHandler tagFormHandler;
     private String lastDetailTaskId;
-    private SortMode currentSort = SortMode.PRIORITY;
+    private static SortMode currentSort = SortMode.PRIORITY;
     private ViewMode currentView = ViewMode.TASKS;
-    private boolean showCompleted = false;
-    private boolean showMineOnly = false;
+    private static boolean showCompleted = false;
+    private static boolean showMineOnly = false;
     private StyledButtonWidget sortPrioBtn;
     private StyledButtonWidget sortTimeBtn;
     private StyledButtonWidget filterDoneBtn;

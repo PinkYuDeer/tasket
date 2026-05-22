@@ -10,7 +10,6 @@ import com.cleanroommc.modularui.api.GuiAxis;
 import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
-import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.value.IntValue;
 import com.cleanroommc.modularui.widgets.SliderWidget;
 import com.cleanroommc.modularui.widgets.layout.Flow;
@@ -18,6 +17,7 @@ import com.pinkyudeer.tasket.Tasket;
 import com.pinkyudeer.tasket.client.TagClientActions;
 import com.pinkyudeer.tasket.client.TaskClientStore;
 import com.pinkyudeer.tasket.gui.GuiStyle;
+import com.pinkyudeer.tasket.gui.drawable.FrostedGlassDrawable;
 import com.pinkyudeer.tasket.gui.drawable.ShaderDrawable;
 import com.pinkyudeer.tasket.gui.widget.StyledButtonWidget;
 import com.pinkyudeer.tasket.gui.widget.StyledTextField;
@@ -28,7 +28,7 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 @SideOnly(Side.CLIENT)
-public class TagFormPanel extends ModularPanel {
+public class TagFormPanel extends AnimatedPanel {
 
     private final StyledTextField nameField;
     private final StyledTextField descField;
@@ -57,12 +57,21 @@ public class TagFormPanel extends ModularPanel {
         this(null, onSaved);
     }
 
+    public TagFormPanel(Runnable onSaved, String panelName) {
+        this(null, onSaved, panelName);
+    }
+
     public TagFormPanel(NBTTagCompound editingTag, Runnable onSaved) {
-        super("tasket_tag_form");
+        this(editingTag, onSaved, "tasket_tag_form");
+    }
+
+    public TagFormPanel(NBTTagCompound editingTag, Runnable onSaved, String panelName) {
+        super(panelName == null || panelName.isEmpty() ? "tasket_tag_form" : panelName);
         this.onSaved = onSaved;
         size(340, GuiStyle.fitPanelHeight(286, 18, 248));
         center();
-        background(IDrawable.EMPTY);
+        background(FrostedGlassDrawable.create(10f));
+        disableHoverBackground();
         overlay(ShaderDrawable.panel(10f, 0x222233D8, GuiStyle.ACCENT));
         nameField = GuiStyle.textField();
         descField = GuiStyle.textField();

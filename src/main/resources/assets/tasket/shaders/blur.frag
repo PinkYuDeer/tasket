@@ -32,24 +32,26 @@ void main() {
     float weight3 = 0.0540540541;
     float weight4 = 0.0162162162;
 
-    // 偏移值被精心选择以获得最佳效果
+    // 偏移值被精心选择以获得最佳效果，radius=12.0 保持旧默认效果
+    float radiusScale = max(radius, 0.01) / 12.0;
     float offset1 = 1.0;
     float offset2 = 2.3333333333;
     float offset3 = 3.5555555556;
     float offset4 = 4.6666666667;
+    vec2 blurStep = direction * texelSize * radiusScale;
 
     // 应用四对对称采样，使用安全采样函数
-    color += safeTexture2D(texture, uv + direction * texelSize * offset1) * weight1;
-    color += safeTexture2D(texture, uv - direction * texelSize * offset1) * weight1;
+    color += safeTexture2D(texture, uv + blurStep * offset1) * weight1;
+    color += safeTexture2D(texture, uv - blurStep * offset1) * weight1;
 
-    color += safeTexture2D(texture, uv + direction * texelSize * offset2) * weight2;
-    color += safeTexture2D(texture, uv - direction * texelSize * offset2) * weight2;
+    color += safeTexture2D(texture, uv + blurStep * offset2) * weight2;
+    color += safeTexture2D(texture, uv - blurStep * offset2) * weight2;
 
-    color += safeTexture2D(texture, uv + direction * texelSize * offset3) * weight3;
-    color += safeTexture2D(texture, uv - direction * texelSize * offset3) * weight3;
+    color += safeTexture2D(texture, uv + blurStep * offset3) * weight3;
+    color += safeTexture2D(texture, uv - blurStep * offset3) * weight3;
 
-    color += safeTexture2D(texture, uv + direction * texelSize * offset4) * weight4;
-    color += safeTexture2D(texture, uv - direction * texelSize * offset4) * weight4;
+    color += safeTexture2D(texture, uv + blurStep * offset4) * weight4;
+    color += safeTexture2D(texture, uv - blurStep * offset4) * weight4;
 
     gl_FragColor = color;
     gl_FragColor.a = 1.0;

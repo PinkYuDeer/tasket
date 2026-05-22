@@ -2,14 +2,13 @@ package com.pinkyudeer.tasket.gui.panel;
 
 import org.lwjgl.input.Keyboard;
 
-import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
-import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.pinkyudeer.tasket.Tasket;
 import com.pinkyudeer.tasket.client.TeamClientActions;
 import com.pinkyudeer.tasket.gui.GuiStyle;
+import com.pinkyudeer.tasket.gui.drawable.FrostedGlassDrawable;
 import com.pinkyudeer.tasket.gui.drawable.ShaderDrawable;
 import com.pinkyudeer.tasket.gui.widget.StyledTextField;
 import com.pinkyudeer.tasket.task.team.TeamProviders;
@@ -18,7 +17,7 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 @SideOnly(Side.CLIENT)
-public class TeamFormPanel extends ModularPanel {
+public class TeamFormPanel extends AnimatedPanel {
 
     private final StyledTextField nameField;
     private final StyledTextField descField;
@@ -31,7 +30,8 @@ public class TeamFormPanel extends ModularPanel {
         this.onSaved = onSaved;
         size(300, externalSourceAvailable() ? 188 : 160);
         center();
-        background(IDrawable.EMPTY);
+        background(FrostedGlassDrawable.create(10f));
+        disableHoverBackground();
         overlay(ShaderDrawable.panel(10f, 0x222233D8, GuiStyle.ACCENT));
         nameField = GuiStyle.textField();
         descField = GuiStyle.textField();

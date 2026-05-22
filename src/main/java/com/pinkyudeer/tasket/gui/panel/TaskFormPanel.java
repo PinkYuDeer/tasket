@@ -13,7 +13,6 @@ import net.minecraft.nbt.NBTTagList;
 import org.lwjgl.input.Keyboard;
 
 import com.cleanroommc.modularui.api.IPanelHandler;
-import com.cleanroommc.modularui.api.drawable.IDrawable;
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.screen.ModularPanel;
@@ -23,6 +22,7 @@ import com.pinkyudeer.tasket.Tasket;
 import com.pinkyudeer.tasket.client.TaskClientActions;
 import com.pinkyudeer.tasket.client.TaskClientStore;
 import com.pinkyudeer.tasket.gui.GuiStyle;
+import com.pinkyudeer.tasket.gui.drawable.FrostedGlassDrawable;
 import com.pinkyudeer.tasket.gui.drawable.ShaderDrawable;
 import com.pinkyudeer.tasket.gui.widget.StyledButtonWidget;
 import com.pinkyudeer.tasket.gui.widget.StyledMultilineTextField;
@@ -34,16 +34,18 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 @SideOnly(Side.CLIENT)
-public class TaskFormPanel extends ModularPanel {
+public class TaskFormPanel extends AnimatedPanel {
 
     private static final int FORM_BG = 0x222233D8;
     private static final int LABEL_WIDTH = 70;
     private static final int PICKER_BG = 0x1E1E38F0;
+    private static int nextId;
 
     private final StyledTextField titleField;
     private final StyledMultilineTextField descField;
     private final Runnable onSaved;
     private final String parentTaskId;
+    private final String uid = String.valueOf(nextId++);
     private final Set<String> selectedTagIds = new HashSet<>();
 
     private Flow form;
@@ -65,13 +67,18 @@ public class TaskFormPanel extends ModularPanel {
     private IPanelHandler tagPickerHandler;
     private IPanelHandler tagFormHandler;
     private IPanelHandler assigneePickerHandler;
+    private IWidget pendingAnchor;
 
     public TaskFormPanel(Runnable onSaved) {
         this(onSaved, null);
     }
 
     public TaskFormPanel(Runnable onSaved, String parentTaskId) {
-        super(parentTaskId != null ? "tasket_subtask_form" : "tasket_task_form");
+        this(onSaved, parentTaskId, parentTaskId != null ? "tasket_subtask_form" : "tasket_task_form");
+    }
+
+    public TaskFormPanel(Runnable onSaved, String parentTaskId, String panelName) {
+        super(panelName);
         this.onSaved = onSaved;
         this.parentTaskId = parentTaskId;
         Task parent = parentTaskId == null ? null : TaskClientStore.INSTANCE.getTask(parentTaskId);
@@ -79,7 +86,8 @@ public class TaskFormPanel extends ModularPanel {
 
         size(340, GuiStyle.fitPanelHeight(300, 18, 246));
         center();
-        background(IDrawable.EMPTY);
+        background(FrostedGlassDrawable.create(10f));
+        disableHoverBackground();
         overlay(ShaderDrawable.panel(10f, FORM_BG, GuiStyle.ACCENT));
 
         titleField = GuiStyle.textField();
@@ -93,6 +101,10 @@ public class TaskFormPanel extends ModularPanel {
             .name("form/root");
         child(form);
         rebuildForm();
+    }
+
+    private String pn(String base) {
+        return "task_form_" + base + "_" + uid;
     }
 
     @Override
@@ -357,16 +369,22 @@ public class TaskFormPanel extends ModularPanel {
     }
 
     private void openTagPicker(IWidget anchor) {
-        if (tagPickerHandler != null) tagPickerHandler.deleteCachedPanel();
-        tagPickerHandler = IPanelHandler.simple(this, (p, pl) -> buildTagPicker(anchor), true);
+        pendingAnchor = anchor;
+        if (tagPickerHandler == null) {
+            tagPickerHandler = IPanelHandler.simple(this, (p, pl) -> buildTagPicker(pendingAnchor), true);
+        } else {
+            if (tagPickerHandler.isPanelOpen()) return;
+            tagPickerHandler.deleteCachedPanel();
+        }
         tagPickerHandler.openPanel();
     }
 
     private ModularPanel buildTagPicker(IWidget anchor) {
-        ModularPanel panel = new InputSafePanel("tasket_form_tags");
+        ModularPanel panel = new InputSafePanel(pn("form_tags"));
         panel.size(250, 190);
         placeBelow(panel, anchor);
-        panel.background(IDrawable.EMPTY);
+        panel.background(FrostedGlassDrawable.create(6f));
+        panel.disableHoverBackground();
         panel.overlay(ShaderDrawable.panel(6f, PICKER_BG, GuiStyle.ACCENT));
 
         Flow root = Flow.column();
@@ -444,8 +462,13 @@ public class TaskFormPanel extends ModularPanel {
     }
 
     private void openTagForm(ModularPanel parent) {
-        if (tagFormHandler != null) tagFormHandler.deleteCachedPanel();
-        tagFormHandler = IPanelHandler.simple(parent, (p, pl) -> new TagFormPanel(this::refreshTags), true);
+        if (tagFormHandler == null) {
+            tagFormHandler = IPanelHandler
+                .simple(this, (p, pl) -> new TagFormPanel(this::refreshTags, pn("tag_form")), true);
+        } else {
+            if (tagFormHandler.isPanelOpen()) return;
+            tagFormHandler.deleteCachedPanel();
+        }
         tagFormHandler.openPanel();
     }
 
@@ -486,13 +509,18 @@ public class TaskFormPanel extends ModularPanel {
     }
 
     private void openAssigneePicker(IWidget anchor) {
-        if (assigneePickerHandler != null) assigneePickerHandler.deleteCachedPanel();
-        assigneePickerHandler = IPanelHandler.simple(this, (p, pl) -> buildAssigneePanel(anchor), true);
+        pendingAnchor = anchor;
+        if (assigneePickerHandler == null) {
+            assigneePickerHandler = IPanelHandler.simple(this, (p, pl) -> buildAssigneePanel(pendingAnchor), true);
+        } else {
+            if (assigneePickerHandler.isPanelOpen()) return;
+            assigneePickerHandler.deleteCachedPanel();
+        }
         assigneePickerHandler.openPanel();
     }
 
     private ModularPanel buildAssigneePanel(IWidget anchor) {
-        ModularPanel panel = new InputSafePanel("tasket_form_assignee");
+        ModularPanel panel = new InputSafePanel(pn("form_assignee"));
         panel.size(
             Math.max(
                 150,
@@ -500,7 +528,8 @@ public class TaskFormPanel extends ModularPanel {
                     .w()),
             142);
         placeBelow(panel, anchor);
-        panel.background(IDrawable.EMPTY);
+        panel.background(FrostedGlassDrawable.create(6f));
+        panel.disableHoverBackground();
         panel.overlay(ShaderDrawable.panel(6f, PICKER_BG, GuiStyle.ACCENT));
 
         Flow root = Flow.column();

@@ -29,7 +29,7 @@ public class EventHandler {
 
         @SubscribeEvent
         public void onWorldLoad(WorldEvent.Load event) throws IOException {
-            if (event.world.provider.dimensionId != 0) return;
+            if (event.world.isRemote || event.world.provider.dimensionId != 0) return;
 
             ModFileHelper.updateModWorldDir(Tasket.proxy.getCurrentWorldDir(event.world));
             SQLiteManager.initSqlite();
@@ -37,8 +37,7 @@ public class EventHandler {
 
         @SubscribeEvent
         public void onWorldSave(WorldEvent.Save event) {
-            // TODO: 测试其他世界暂停是否会保存主世界
-            if (event.world.provider.dimensionId != 0) return;
+            if (event.world.isRemote || event.world.provider.dimensionId != 0) return;
 
             Tasket.LOG.info("World save event triggered");
 
@@ -47,7 +46,7 @@ public class EventHandler {
 
         @SubscribeEvent
         public void onWorldUnload(WorldEvent.Unload event) {
-            if (event.world.provider.dimensionId != 0) return;
+            if (event.world.isRemote || event.world.provider.dimensionId != 0) return;
 
             Tasket.LOG.info("World unload event triggered");
 
